@@ -64,6 +64,36 @@ describe.skipIf(!url)('catalog visibility follows retained nondeleted tastings',
     expect(items.find(item => item.id === repeatItem)?.tastingCount).toBe(2);
   });
 
+  it('returns distinct current reviewers with chosen names and avatars, including repeat history', async () => {
+    const avatar='https://cdn.discordapp.com/embed/avatars/2.png';
+    await getPool().query('UPDATE everrate.users SET nickname=$1,avatar_url=$2 WHERE id=$3',['Tasting pal',avatar,owner]);
+    const items=await service.listItems(owner,groupId);
+    const repeat=items.find(item=>item.id===repeatItem)!;
+    expect(repeat.reviewers).toEqual([{id:owner,displayName:'Tasting pal',avatarUrl:avatar}]);
+    expect(repeat.raterCount).toBe(1);
+    expect((await service.getItem(owner,repeatItem)).reviewers).toEqual(repeat.reviewers);
+    expect((await service.getItem(owner,deletedItem)).reviewers).toEqual([]);
+  });
+
+  it('caps bubbles at four while retaining total count, excludes departed members, and never exposes provider IDs', async () => {
+    const memberIds=Array.from({length:5},()=>randomUUID());
+    const invite=(await service.getGroup(owner,groupId)).inviteCode!;
+    const photo=(await getPool().query('SELECT id FROM everrate.photos WHERE group_id=$1 LIMIT 1',[groupId])).rows[0].id;
+    for(const [index,id] of memberIds.entries()){
+      await service.ensureUser({id,displayName:'Reviewer '+index});
+      await service.joinGroup(id,{code:invite});
+      await getPool().query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,photo_id) VALUES($1,$2,$3,8,$4)',[groupId,repeatItem,id,photo]);
+    }
+    const all=await service.getItem(owner,repeatItem);
+    expect(all.raterCount).toBe(6);expect(all.reviewers).toHaveLength(4);
+    expect(all.reviewers!.every(r=>Object.keys(r).sort().join(',')==='avatarUrl,displayName,id')).toBe(true);
+    await getPool().query('DELETE FROM everrate.memberships WHERE group_id=$1 AND user_id=$2',[groupId,memberIds[0]]);
+    const next=await service.getItem(owner,repeatItem);
+    expect(next.raterCount).toBe(5);expect(next.reviewers!.some(r=>r.id===memberIds[0])).toBe(false);
+    // Keep the other visibility assertions independent of this fixture extension.
+    await getPool().query('DELETE FROM everrate.ratings WHERE item_id=$1 AND user_id=ANY($2::uuid[])',[repeatItem,memberIds]);
+  });
+
   it('retains authorized direct item access and stored history for hidden rows', async () => {
     for (const id of [emptyItem, deletedItem]) expect(await service.getItem(owner, id)).toMatchObject({ id, tastingCount: 0, ratings: [] });
     expect((await getPool().query('SELECT count(*)::int n FROM everrate.items WHERE group_id=$1', [groupId])).rows[0].n).toBe(4);

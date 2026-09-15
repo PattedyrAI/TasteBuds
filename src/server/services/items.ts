@@ -8,10 +8,16 @@ export const itemSelect = `SELECT i.*,b.name AS brand,t.name AS type,
  coalesce((SELECT photo_id FROM everrate.ratings p WHERE p.item_id=i.id AND p.deleted_at IS NULL AND p.photo_id IS NOT NULL ORDER BY p.tasted_at DESC,p.created_at DESC,p.id DESC LIMIT 1),i.legacy_photo_id) photo_id,
  (SELECT avg(latest.score) FROM (SELECT DISTINCT ON(r.user_id) r.score FROM everrate.ratings r JOIN everrate.memberships m ON m.user_id=r.user_id AND m.group_id=r.group_id WHERE r.item_id=i.id AND r.deleted_at IS NULL ORDER BY r.user_id,r.tasted_at DESC,r.created_at DESC,r.id DESC) latest) average,
  (SELECT count(DISTINCT r.user_id) FROM everrate.ratings r JOIN everrate.memberships m ON m.user_id=r.user_id AND m.group_id=r.group_id WHERE r.item_id=i.id AND r.deleted_at IS NULL) rater_count,
+ (SELECT coalesce(jsonb_agg(reviewer ORDER BY reviewer."displayName",reviewer.id),'[]'::jsonb) FROM (
+   SELECT u.id,coalesce(u.nickname,u.display_name) AS "displayName",u.avatar_url AS "avatarUrl"
+   FROM everrate.users u JOIN everrate.memberships m ON m.user_id=u.id AND m.group_id=i.group_id
+   WHERE EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.item_id=i.id AND r.user_id=u.id AND r.deleted_at IS NULL)
+   ORDER BY coalesce(u.nickname,u.display_name),u.id LIMIT 4
+ ) reviewer) reviewers,
  (SELECT count(*) FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) tasting_count,
  (SELECT max(tasted_at) FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) last_rated_at
  FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id LEFT JOIN everrate.item_types t ON t.id=i.type_id`;
-function item(row: Record<string, any>): Item { return { id:row.id,groupId:row.group_id,createdBy:row.created_by,name:row.name,brand:row.brand || null,variant:row.variant || null,type:row.type || null,broadCategory:row.broad_category || null,photoId:row.photo_id || null,average:row.average === null ? null : Number(row.average),raterCount:Number(row.rater_count),tastingCount:Number(row.tasting_count),lastRatedAt:row.last_rated_at ? iso(row.last_rated_at) : null }; }
+function item(row: Record<string, any>): Item { return { reviewers:row.reviewers??[],id:row.id,groupId:row.group_id,createdBy:row.created_by,name:row.name,brand:row.brand || null,variant:row.variant || null,type:row.type || null,broadCategory:row.broad_category || null,photoId:row.photo_id || null,average:row.average === null ? null : Number(row.average),raterCount:Number(row.rater_count),tastingCount:Number(row.tasting_count),lastRatedAt:row.last_rated_at ? iso(row.last_rated_at) : null }; }
 export const ratingSelect = `SELECT r.*,${userColumns},i.name item_name,b.name brand,i.variant FROM everrate.ratings r JOIN everrate.users u ON u.id=r.user_id JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id`;
 export function comment(row: Record<string, any>): Comment { return {id:row.id,ratingId:row.rating_id,author:user(row),body:row.body,createdAt:iso(row.created_at)}; }
 export async function ratingRows(db: Db, rows: Record<string, any>[]): Promise<FeedEntry[]> {

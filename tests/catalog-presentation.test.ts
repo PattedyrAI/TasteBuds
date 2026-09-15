@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest';
+import {categoryStyle,categoryTone} from '../src/components/category-style';
 import type {Item} from '../src/lib/contracts';
 import {rankCategories,visibleCategories,groupFavourites,discordAvatarUrl} from '../src/components/catalog-presentation';
 const item=(id:string,type:string|null,tastingCount:number,raterCount=1,average:number|null=8):Item=>({id,name:id,type,tastingCount,raterCount,average,groupId:'g',createdBy:'u',brand:null,variant:null,broadCategory:null,photoId:null,lastRatedAt:null});
@@ -26,5 +27,20 @@ describe('Discord avatar URL policy',()=>{
  });
  it('rejects arbitrary hosts, credentials, ports, unsafe schemes and other Discord paths',()=>{
   for(const url of [null,'','http://cdn.discordapp.com/avatars/123/a.png','https://evil.example/a.png','https://cdn.discordapp.com.evil.example/avatars/1/a.png','https://u@cdn.discordapp.com/avatars/1/a.png','https://cdn.discordapp.com:444/avatars/1/a.png','https://cdn.discordapp.com/attachments/123/a.png','data:image/svg+xml,test'])expect(discordAvatarUrl(url)).toBeNull();
+ });
+});
+
+describe('category colours',()=>{
+ it('keeps category colours stable across case and fallback labels',()=>{
+  expect(categoryTone('Energy drinks')).toBe('lime');
+  expect(categoryStyle(' energy DRINKS ')).toEqual(categoryStyle('Energy drinks'));
+  expect(categoryTone('Mac and cheese')).toBe('amber');
+  expect(categoryStyle('Unknown dish')).toEqual(categoryStyle('Unknown dish'));
+  expect(categoryTone(null)).toBe('slate');
+ });
+ it('can rank a category independently from the overall top ten',()=>{
+  const foods=[...Array.from({length:12},(_,n)=>item('Drink '+n,'Energy drinks',3,3,9)),item('Mac','Mac and cheese',3,3,7)];
+  expect(groupFavourites(foods).some(i=>i.id==='Mac')).toBe(false);
+  expect(groupFavourites(foods.filter(i=>i.type==='Mac and cheese'))[0].id).toBe('Mac');
  });
 });
