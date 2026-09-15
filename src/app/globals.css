@@ -67,3 +67,6 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
  .score-six-seven:hover .six-seven-digit:last-child{animation-delay:-300ms}
 }
 @keyframes six-seven-bob{0%,100%{transform:translateY(-.12em) rotate(-5deg)}50%{transform:translateY(.12em) rotate(5deg)}}
+
+.personal-review-actions{display:flex;gap:24px;padding:4px 20px 8px}.personal-review-actions button{min-height:44px}.history-entry>.inline-confirm{margin:0 20px 16px}
+@media(max-width:760px){.bottom-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding-inline:4px}.bottom-nav button{min-width:0;min-height:48px;padding:6px 2px;font-size:9px;letter-spacing:-.15px}.bottom-nav button span{white-space:nowrap}.personal-review-actions{padding-inline:14px}}

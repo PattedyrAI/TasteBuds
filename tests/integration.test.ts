@@ -91,6 +91,22 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     const revisions = await getPool().query('select * from everrate.rating_revisions where rating_id=$1', [rating.id]);
     expect(revisions.rowCount).toBe(2);
   });
+  it('lets members manage their own history without gaining admin access or changing another person’s review',async()=>{
+    const mine=await createWithPhoto(users[1],{groupId,name:'My editable review',score:4,note:'Original opinion'});
+    const other=await createWithPhoto(users[0],{groupId,name:'Another person review',score:8});
+    const history=await service.getPersonRatings(users[1],groupId,users[1]);
+    expect(history.ratings.some(r=>r.id===mine.id)).toBe(true);
+    expect(history.ratings.some(r=>r.id===other.id)).toBe(false);
+    await expect(service.updateGroup(users[1],groupId,{ownerId:users[1]})).rejects.toMatchObject({status:403});
+    await expect(service.updateRating(users[1],other.id,{score:1})).rejects.toMatchObject({status:403});
+    await expect(service.deleteRating(users[1],other.id)).rejects.toMatchObject({status:403});
+    await service.updateRating(users[1],mine.id,{score:7,note:'Updated opinion'});
+    expect((await service.getItem(users[1],mine.itemId)).ratings[0]).toMatchObject({id:mine.id,score:7,note:'Updated opinion'});
+    await service.deleteRating(users[1],mine.id);
+    expect((await service.getPersonRatings(users[1],groupId,users[1])).ratings.some(r=>r.id===mine.id)).toBe(false);
+    expect((await service.getItem(users[1],other.itemId)).ratings[0].score).toBe(8);
+    expect((await getPool().query("SELECT user_id FROM everrate.memberships WHERE group_id=$1 AND role='owner'",[groupId])).rows).toEqual([{user_id:users[0]}]);
+  });
   it('preserves an existing relay photo during an authorized historical correction', async () => {
     await service.joinGroup(users[1],{code:(await service.getGroup(users[0],groupId)).inviteCode!});
     const relayPhoto = await testPhoto(users[0], groupId);
