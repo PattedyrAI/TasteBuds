@@ -10,7 +10,7 @@ export function CollectionHome({items,browse,open,add}:{items:Item[];browse:(typ
   const categories=rankCategories(items),visible=visibleCategories(categories,expanded);
   return <div className="collection-home">
     <div className="home-section-heading"><div><h2>Explore the collection</h2><p className="muted">Your most-tried categories, all in one place.</p></div><button className="text-button" onClick={()=>browse('')}>View all {items.length} items <ArrowUpRight size={16}/></button></div>
-    {categories.length?<><div className="subcategory-grid" id={categoriesId}>{visible.map(({type:label,items:rows,tastingCount})=>{
+    {categories.length?<><div className="subcategory-grid" key={expanded?"expanded":"collapsed"} id={categoriesId}>{visible.map(({type:label,items:rows,tastingCount})=>{
       const cover=rows.find(i=>i.photoId)||rows[0];
       const title=label===null?'Unsorted':label;
       return <button className="subcategory-card" key={label===null?'unassigned':`type:${label}`} onClick={()=>browse(label)}>
