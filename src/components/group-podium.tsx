@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import {matchesBrowseCategory} from '../domain/browse-categories';
 import {Crown,ArrowUpRight,Trophy} from 'lucide-react';
 import type {Item} from '@/lib/contracts';
 import {Photo} from './ui';
@@ -9,7 +10,7 @@ import {groupFavourites,rankCategories} from './catalog-presentation';
 import {categoryStyle} from './category-style';
 export function GroupPodium({items,open,browse}:{items:Item[];open:(id:string)=>void;browse:()=>void}){
  const [category,setCategory]=useState('all'),categories=rankCategories(items);
- const eligible=items.filter(i=>category==='all'||(category==='unassigned'?!i.type:i.type===category.slice(5))),ranked=groupFavourites(eligible);
+ const eligible=items.filter(i=>category==='all'||matchesBrowseCategory(i.type,category==='unassigned'?null:category.slice(5))),ranked=groupFavourites(eligible);
  return <section className="favourites-section"><div className="podium-heading"><div><h2><Trophy size={24}/> Group favourites</h2><p>Three or more people. One shared verdict.</p></div><SelectMenu label="Favourites category" value={category} onChange={setCategory} options={[{value:'all',label:'All categories'},...categories.map(c=>({value:c.type===null?'unassigned':`type:${c.type}`,label:c.type??'Unsorted'}))]}/></div>
  {ranked.length?<><div className="podium" key={category} aria-label="Top three group favourites">{ranked.slice(0,3).map((item,index)=><button key={item.id} className={`podium-place place-${index+1}`} onClick={()=>open(item.id)} style={categoryStyle(item.type)}>
  <span className="sr-only">{index+1}{index===0?'st':index===1?'nd':'rd'} place</span><div className="podium-product"><span className="podium-medal">{index===0?<Crown size={20}/>:index+1}<span className="sr-only">{index===0?'First place':''}</span></span><Photo id={item.photoId} name={item.name}/></div>

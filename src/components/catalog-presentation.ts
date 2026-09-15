@@ -1,8 +1,9 @@
 import type {Item} from '@/lib/contracts';
+import {browseCategory} from '../domain/browse-categories';
 export type CategorySummary={type:string|null;items:Item[];tastingCount:number};
 export function rankCategories(items:Item[]):CategorySummary[]{
   const groups=new Map<string|null,CategorySummary>();
-  for(const item of items){const type=item.type||null;let category=groups.get(type);if(!category){category={type,items:[],tastingCount:0};groups.set(type,category);}category.items.push(item);category.tastingCount+=item.tastingCount;}
+  for(const item of items){const type=browseCategory(item.type);let category=groups.get(type);if(!category){category={type,items:[],tastingCount:0};groups.set(type,category);}category.items.push(item);category.tastingCount+=item.tastingCount;}
   return [...groups.values()].sort((a,b)=>b.tastingCount-a.tastingCount||(a.type??'Unsorted').localeCompare(b.type??'Unsorted')||(a.type===null?-1:b.type===null?1:0));
 }
 export function visibleCategories(categories:CategorySummary[],expanded:boolean,selected:string|null=''):CategorySummary[]{

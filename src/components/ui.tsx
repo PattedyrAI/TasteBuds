@@ -11,7 +11,10 @@ export function Modal({title,close,children}:{title:string;close:()=>void;childr
   return <dialog ref={ref} className="modal" aria-labelledby={titleId} onCancel={close}><div className="modal-head"><h2 id={titleId}>{title}</h2><button className="icon-button" aria-label="Close" onClick={close}><X size={22}/></button></div>{children}</dialog>;
 }
 export function Photo({id,name,className=''}:{id:string|null;name:string;className?:string}){return id?<img className={`item-photo ${className}`} src={`/api/photos/${id}`} alt={name} loading="lazy"/>:<div className={`photo-placeholder ${className}`}><Utensils size={32}/><span>{name}</span></div>;}
-export function Score({value}:{value:number|null}){return <span className="score">{value==null?'—':value.toFixed(1)}<small>/10</small></span>;}
+export function Score({value}:{value:number|null}){
+ const label=value==null?'—':value.toFixed(1),sixSeven=label==='6.7';
+ return <span className={`score${sixSeven?' score-six-seven':''}`}>{sixSeven?<><span className="sr-only">6.7</span><span className="six-seven-digits" aria-hidden="true"><span className="six-seven-digit">6</span>.<span className="six-seven-digit">7</span></span></>:label}<small>/10</small></span>;
+}
 export const date=(value:string)=>new Date(value).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
 
 export function Avatar({name,url,decorative=true}:{name:string;url:string|null;decorative?:boolean}){
