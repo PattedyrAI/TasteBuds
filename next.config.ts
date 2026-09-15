@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  async redirects() {
+    return [{source:'/:path*',has:[{type:'host',value:'web-production-00050.up.railway.app'}],destination:'https://tastebuds-production-1b73.up.railway.app/:path*',permanent:true}];
+  },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

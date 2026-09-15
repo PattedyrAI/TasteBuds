@@ -12,10 +12,10 @@ The following resource IDs were reconciled on September 15, 2026. Always target 
 | Production environment | `f42f3c21-f3ae-4651-859e-7d4fde685162` |
 | Web service | `280a7c2d-6bf2-4761-aec1-ac3428d543f0` |
 | Canonical PostgreSQL service | `c75c254b-911d-4014-895f-a9d969890fac` |
-| Public application | https://web-production-00050.up.railway.app |
+| Public application | https://tastebuds-production-1b73.up.railway.app |
 | Existing Supabase Auth gateway | https://gateway-production-2db8.up.railway.app |
 
-Keep the existing Supabase Discord provider, its verified Auth identities and callback service. The new application callback is `https://web-production-00050.up.railway.app/auth/callback`; permit that exact return URL in the existing Auth configuration. The Discord provider's own redirect URI remains the Supabase gateway callback. Changing one does not automatically change the other.
+Keep the existing Supabase Discord provider, its verified Auth identities and callback service. The new application callback is `https://tastebuds-production-1b73.up.railway.app/auth/callback`; permit that exact return URL in the existing Auth configuration. The Discord provider's own redirect URI remains the Supabase gateway callback. Changing one does not automatically change the other.
 
 ## Build and runtime configuration
 
@@ -142,7 +142,7 @@ Run public verification from the checkout with no session cookie or service cred
 ```sh
 VERIFY_AUTH_ORIGIN=https://gateway-production-2db8.up.railway.app \
 EXPECTED_RELEASE="$EVERRATE_RELEASE" \
-npx tsx scripts/verify-launch.ts https://web-production-00050.up.railway.app
+npx tsx scripts/verify-launch.ts https://tastebuds-production-1b73.up.railway.app
 ```
 
 The script returns nonzero on a failed check. It checks HTTPS responses, landing-page sign-in, database health and marker, the standalone manifest, 192/512/Apple PNG dimensions, service worker/offline assets, unauthenticated read/write 401 responses, cross-origin write 403, and the exact Supabase Discord initiation redirect. It never follows OAuth, supplies a cookie, prints response bodies, or claims real login succeeded. `--allow-local` permits loopback HTTP for local smoke checks and labels the result accordingly.
