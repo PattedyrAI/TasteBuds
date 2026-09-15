@@ -92,7 +92,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect(revisions.rowCount).toBe(2);
   });
   it('lets members manage their own history without gaining admin access or changing another person’s review',async()=>{
-    const mine=await createWithPhoto(users[1],{groupId,name:'My editable review',score:4,note:'Original opinion'});
+    const mine=await createWithPhoto(users[1],{groupId,name:'My editable review',score:4.5,note:'Original opinion'});
     const other=await createWithPhoto(users[0],{groupId,name:'Another person review',score:8});
     const history=await service.getPersonRatings(users[1],groupId,users[1]);
     expect(history.ratings.some(r=>r.id===mine.id)).toBe(true);
@@ -100,8 +100,8 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     await expect(service.updateGroup(users[1],groupId,{ownerId:users[1]})).rejects.toMatchObject({status:403});
     await expect(service.updateRating(users[1],other.id,{score:1})).rejects.toMatchObject({status:403});
     await expect(service.deleteRating(users[1],other.id)).rejects.toMatchObject({status:403});
-    await service.updateRating(users[1],mine.id,{score:7,note:'Updated opinion'});
-    expect((await service.getItem(users[1],mine.itemId)).ratings[0]).toMatchObject({id:mine.id,score:7,note:'Updated opinion'});
+    await service.updateRating(users[1],mine.id,{score:7.5,note:'Updated opinion'});
+    expect((await service.getItem(users[1],mine.itemId)).ratings[0]).toMatchObject({id:mine.id,score:7.5,note:'Updated opinion'});
     await service.deleteRating(users[1],mine.id);
     expect((await service.getPersonRatings(users[1],groupId,users[1])).ratings.some(r=>r.id===mine.id)).toBe(false);
     expect((await service.getItem(users[1],other.itemId)).ratings[0].score).toBe(8);

@@ -222,3 +222,11 @@ Release `0a13152efccd1d527a93407f8540faf1070d6f2e` reached Railway `SUCCESS` as 
 The shared Score component animates the digits of displayed 6.7 scores in opposite phases on hover. It leaves the score's accessible text intact, stops on hover exit and respects reduced motion. Verification: 169 unit tests, build/TypeScript, 50 responsive browser checks and nine focused grouping/animation checks passed. Independent review approved both changes.
 
 A real Safari tasting-history check also verified the preceding rereview release: one person's newer 5.0 counts, their older 8.0 does not, and the item average remains 5.7 across three people's latest scores. No actual rating was edited or deleted for that check.
+
+## Personal review management (September 15, 2026)
+
+Release `9a08f9fdeb6d593bbd156ae2fbaf5f6c68b3f1bb` reached Railway `SUCCESS` as `303c837e-1d4d-46f9-b02d-9d277b1ddacb`; all nine public checks passed against the exact marker at 14:18 UTC. My reviews uses the signed-in canonical person ID and adds direct edit/delete controls to every personal history entry, including older rereviews. Delete requires confirmation. Existing server author/membership checks and revision preservation remain authoritative. Pending edit loads cancel on navigation, group changes and competing dialogs.
+
+A real Safari check confirmed that the linked person remains the sole group owner and every other account is a member. My reviews showed the existing 41 ratings with direct edit/delete controls. A real category check confirmed 25 browsing groups, reduced from 49, and aggregated tasting counts. No production reviews were changed during verification.
+
+Build/TypeScript and independent review passed. Validation included 169 unit tests, 66 database integration tests, 11 personal-review browser checks and five delayed-edit navigation cases. Tests exercised self-edit/delete, cancelled deletion, denied cross-author changes and self-promotion, and six mobile navigation targets of at least 44px at 320px and 390px. No schema or membership changes were needed.

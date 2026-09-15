@@ -1,6 +1,7 @@
 'use client';
 import {RatingStatus} from './rating-status';
-import {browseCategory,matchesBrowseCategory} from '../domain/browse-categories';
+import {matchesBrowseCategory} from '../domain/browse-categories';
+import {matchesItemSearch} from '../domain/item-search';
 import {useEffect,useRef,useState} from 'react';
 import {House,BookOpen,Activity,BarChart3,Settings,Plus,Search,LogOut,ArrowUpRight,Users,Star,Menu,NotebookPen} from 'lucide-react';
 import type {Bootstrap,GroupDetail,Item,ItemDetail as Detail,FeedEntry,Rating} from '@/lib/contracts';
@@ -46,7 +47,7 @@ export function AppClient(){
   useEffect(()=>{let active=true;request<Bootstrap>('/api/bootstrap').then(v=>{if(!active)return;setBoot(v);setGroupId(previous=>v.groups.some(g=>g.id===previous)?previous:v.groups[0]?.id||'');}).catch(e=>{if(active){setError(e.message);}});return()=>{active=false;};},[revision]);
   useEffect(()=>{if(!groupId){setGroupLoad(null);return;}let active=true;const empty:GroupLoad={groupId,revision,status:'loading',group:null,items:[],feed:[]};setGroupLoad(empty);setError('');Promise.all([request<GroupDetail>(`/api/groups/${groupId}`),allItems(groupId),request<FeedEntry[]>(`/api/groups/${groupId}/feed?limit=100`)]).then(([g,i,f])=>{if(active)setGroupLoad({groupId,revision,status:'ready',group:g,items:i,feed:f});}).catch(e=>{if(active){setGroupLoad({...empty,status:'error'});setError(e.message);}});return()=>{active=false;};},[groupId,revision]);
   useEffect(()=>{const id=new URLSearchParams(window.location.search).get('item');if(!id)return;let active=true;void request<Item>(`/api/items/${encodeURIComponent(id)}`).then(item=>{if(active){setGroupId(item.groupId);setDetail(item.id);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);
-  const filtered=items.filter(i=>(!brand||i.brand===brand)&&matchesBrowseCategory(i.type,type)&&[i.name,i.brand,i.variant,i.type,browseCategory(i.type)].some(v=>v?.toLowerCase().includes(search.toLowerCase()))).sort((a,b)=>sort==='score'?(b.average??-1)-(a.average??-1):sort==='name'?a.name.localeCompare(b.name):sort==='most-rated'?b.tastingCount-a.tastingCount:new Date(b.lastRatedAt||0).getTime()-new Date(a.lastRatedAt||0).getTime());
+  const filtered=items.filter(i=>(!brand||i.brand===brand)&&matchesBrowseCategory(i.type,type)&&matchesItemSearch(i,search)).sort((a,b)=>sort==='score'?(b.average??-1)-(a.average??-1):sort==='name'?a.name.localeCompare(b.name):sort==='most-rated'?b.tastingCount-a.tastingCount:new Date(b.lastRatedAt||0).getTime()-new Date(a.lastRatedAt||0).getTime());
   const brands=[...new Set(items.flatMap(i=>i.brand?[i.brand]:[]))].sort();
   const nav=[{id:'home' as Tab,label:'Home',icon:House},{id:'collection' as Tab,label:'Collection',icon:BookOpen},{id:'feed' as Tab,label:'Group feed',icon:Activity},{id:'stats' as Tab,label:'Our taste',icon:BarChart3},{id:'mine' as Tab,label:'My reviews',icon:NotebookPen},{id:'settings' as Tab,label:'Settings',icon:Settings}];
   if(!boot)return <main className="loading-screen"><span className="wordmark"><BrandMark/></span>{error?<><p className="error">{error}</p><button className="button primary" onClick={refresh}>Try again</button></>:<p>Opening your collection…</p>}</main>;
