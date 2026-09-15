@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import {Plus,Trash2,Pencil} from 'lucide-react';
 import type {ItemDetail as Detail,Rating,User} from '@/lib/contracts';
-import {Modal,Photo,Score,request,date} from './ui';
+import {Avatar,Modal,Photo,Score,request,date} from './ui';
 
 export function ItemDetail({id,user,owner,close,rate,edit,changed,person}:{id:string;user:User;owner:boolean;close:()=>void;rate:(item:Detail)=>void;edit:(rating:Rating,item:Detail)=>void;changed:()=>void;person?:(id:string)=>void}){
   const [item,setItem]=useState<Detail|null>(null),[error,setError]=useState('');
@@ -38,7 +38,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person}:{id:st
       <button className="button primary full" onClick={()=>rate(item)}><Plus size={18}/> Rate it again</button>
       <h3>Every tasting</h3>{item.ratings.length===0&&<p className="muted">No ratings yet. Be the first to try it.</p>}
       {item.ratings.map(r=><article className="tasting" key={r.id}>
-        <header><div className="avatar">{r.author.displayName.slice(0,1)}</div><div><strong>{person?<button className="text-button" onClick={()=>person(r.author.id)}>{r.author.displayName}</button>:r.author.displayName}</strong><small>{date(r.tastedAt)}</small></div><Score value={r.score}/></header>
+        <header><Avatar name={r.author.displayName} url={r.author.avatarUrl}/><div><strong>{person?<button className="text-button" onClick={()=>person(r.author.id)}>{r.author.displayName}</button>:r.author.displayName}</strong><small>{date(r.tastedAt)}</small></div><Score value={r.score}/></header>
         {r.note&&<p className="note">{r.note}</p>}
         {r.photoId?<Photo id={r.photoId} name={`Photo from ${r.author.displayName}'s tasting`} className="tasting-photo"/>:r.legacyPhotoMissing&&<small className="muted">Historical rating · original photo unavailable</small>}
         <div className="tasting-actions">{r.author.id===user.id&&<button className="text-button" onClick={()=>edit(r,item)}><Pencil size={13}/> Edit</button>}{(r.author.id===user.id||owner)&&<button className="text-button danger" onClick={()=>setDeleting(r.id)}><Trash2 size={13}/> Delete</button>}</div>

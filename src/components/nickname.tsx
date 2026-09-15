@@ -1,7 +1,7 @@
 'use client';
 import {useId,useState} from 'react';
 import type {User} from '@/lib/contracts';
-import {request} from './ui';
+import {BrandMark,request} from './ui';
 
 function NicknameForm({user,saved,onboarding=false}:{user:User;saved:(user:User)=>void;onboarding?:boolean}){
   const [nickname,setNickname]=useState(user.nickname??user.displayName),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -26,7 +26,7 @@ function NicknameForm({user,saved,onboarding=false}:{user:User;saved:(user:User)
 export function NicknameOnboarding({user,saved}:{user:User;saved:(user:User)=>void}){
   const [error,setError]=useState('');
   return <main className="nickname-onboarding"><div className="nickname-card">
-    <span className="wordmark">TasteBuds<span>✳</span></span>
+    <span className="wordmark"><BrandMark/></span>
     <h1>What should we call you?</h1><p className="muted">Pick a name your friends will recognise. You can change it later in Settings.</p>
     <NicknameForm user={user} saved={saved} onboarding/>
     {error&&<p className="error" role="alert">{error}</p>}
@@ -37,8 +37,27 @@ export function NicknameOnboarding({user,saved}:{user:User;saved:(user:User)=>vo
   `}</style></main>;
 }
 
-export function AccountSettings({user,saved}:{user:User;saved:(user:User)=>void}){
-  return <section className="settings" aria-label="Your account"><header className="section-title"><h1>Settings</h1><p>Your name across every group.</p></header>
+export function AccountSettings({user,saved,preferencesSaved}:{user:User;saved:(user:User)=>void;preferencesSaved:(user:User)=>void}){
+  return <section className="settings" aria-label="Your account"><header className="section-title"><h1>Settings</h1><p>Your name and how you add ratings, across every group.</p></header>
     <div className="settings-section"><h2>Your nickname</h2><NicknameForm key={`${user.id}-${user.nickname}`} user={user} saved={saved}/></div>
+    <div className="settings-section"><h2>Photo suggestions</h2><PhotoPreferences key={`${user.id}-${user.aiEnabled}`} user={user} saved={preferencesSaved}/></div>
   </section>;
+}
+
+function PhotoPreferences({user,saved}:{user:User;saved:(user:User)=>void}){
+  const [enabled,setEnabled]=useState(user.aiEnabled),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const descriptionId=useId();
+  async function submit(event:React.FormEvent){
+    event.preventDefault();if(busy||enabled===user.aiEnabled)return;
+    setBusy(true);setError('');
+    try{saved(await request<User>('/api/me/preferences','PATCH',{aiEnabled:enabled}));}
+    catch(e){setError(e instanceof Error?e.message:'Could not save your photo preference. Try again.');}
+    finally{setBusy(false);}
+  }
+  return <form className="rating-form" aria-label="Photo suggestions" aria-busy={busy} onSubmit={submit}>
+    <label className="checkbox preference-checkbox"><input type="checkbox" checked={enabled} disabled={busy} aria-describedby={descriptionId} onChange={event=>{setEnabled(event.target.checked);setError('');}}/>Use AI to suggest item details from my photos</label>
+    <p id={descriptionId} className="hint">Off by default. When off, your photos aren’t sent to AI and you enter item details yourself. When on, you can choose “Suggest details with AI” to send a photo to Google Gemini. Uploading alone never starts AI. A photo is required either way.</p>
+    {error&&<p className="error" role="alert">{error}</p>}
+    <button className="button primary" disabled={busy||enabled===user.aiEnabled}>{busy?'Saving preference…':'Save photo preference'}</button>
+  </form>;
 }

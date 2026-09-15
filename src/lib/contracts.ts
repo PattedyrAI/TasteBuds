@@ -1,5 +1,6 @@
 /** Public browser/server contracts. Never add provider credentials to these types. */
-export interface User { id: string; discordId: string | null; nickname: string | null; displayName: string; avatarUrl: string | null }
+export interface User { id: string; discordId: string | null; nickname: string | null; aiEnabled: boolean; displayName: string; avatarUrl: string | null }
+/** memberCount counts current members with at least one nondeleted rating; members remains the full management roster. */
 export interface Group { id: string; name: string; ownerId: string; role: 'owner' | 'member'; memberCount: number; createdAt: string }
 export interface Member extends User { role: 'owner' | 'member'; joinedAt: string }
 export interface Person { id: string; displayName: string; avatarUrl: string | null; role: 'owner' | 'member'; joinedAt: string; ratingCount: number; itemCount: number; lastRatedAt: string | null }
@@ -21,3 +22,5 @@ export interface RecognitionResult { status: 'completed' | 'failed'; suggestion:
 export interface UploadedPhoto { id: string; mimeType: string; width: number; height: number }
 export interface UpdateItemInput { name?: string; brand?: string | null; variant?: string | null; type?: string | null; broadCategory?: string | null }
 export interface UpdateCommentInput { body: string }
+
+export interface UpdatePreferencesInput { aiEnabled: boolean }

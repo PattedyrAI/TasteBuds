@@ -16,6 +16,16 @@ export async function updateNickname(userId:string,input:unknown):Promise<User>{
  });
 }
 
+/** Preferences are self-only and independent of display-name/provider refresh. */
+export async function updatePreferences(userId:string,input:unknown):Promise<User>{
+ validId(userId);const {aiEnabled}=parse(z.object({aiEnabled:z.boolean()}).strict(),input);
+ return transaction(async db=>{
+  const result=await db.query('UPDATE everrate.users SET ai_enabled=$2 WHERE id=$1 RETURNING *',[userId,aiEnabled]);
+  if(!result.rowCount)throw new ServiceError(404,'Person not found');
+  return user(result.rows[0]);
+ });
+}
+
 /** Identity inputs must come from a server-validated provider session, never profile text. */
 export async function ensureUser(input:{id:string;discordId?:string|null;displayName:string;avatarUrl?:string|null}):Promise<User>{
  const value=parse(z.object({id:idSchema,discordId:z.string().regex(/^\d{1,30}$/).nullable().optional(),displayName:nameSchema,avatarUrl:z.string().url().max(2000).nullable().optional()}),input);

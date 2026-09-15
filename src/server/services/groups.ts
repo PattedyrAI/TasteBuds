@@ -11,12 +11,12 @@ export async function bootstrap(userId: string): Promise<Bootstrap> {
   validId(userId);
   const account = await getPool().query('SELECT * FROM everrate.users WHERE id=$1', [userId]);
   if (!account.rowCount) throw new ServiceError(401,'Sign in to continue');
-  const groups = await getPool().query(`SELECT g.*,m.role,(SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id) AS member_count FROM everrate.groups g JOIN everrate.memberships m ON m.group_id=g.id WHERE m.user_id=$1 ORDER BY g.created_at`, [userId]);
+  const groups = await getPool().query(`SELECT g.*,m.role,(SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) AS member_count FROM everrate.groups g JOIN everrate.memberships m ON m.group_id=g.id WHERE m.user_id=$1 ORDER BY g.created_at`, [userId]);
   return { user: user(account.rows[0]), groups: groups.rows.map(group) };
 }
 async function detail(db: Db, userId: string, groupId: string): Promise<GroupDetail> {
   const membership = await requireMembership(db,userId,groupId);
-  const result = await db.query(`SELECT g.*, (SELECT count(*) FROM everrate.memberships WHERE group_id=g.id) member_count, EXISTS(SELECT 1 FROM everrate.discord_connections WHERE group_id=g.id AND enabled) discord_connected FROM everrate.groups g WHERE id=$1`,[groupId]);
+  const result = await db.query(`SELECT g.*, (SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) member_count, EXISTS(SELECT 1 FROM everrate.discord_connections WHERE group_id=g.id AND enabled) discord_connected FROM everrate.groups g WHERE id=$1`,[groupId]);
   const members = await db.query('SELECT u.*,m.role,m.joined_at FROM everrate.memberships m JOIN everrate.users u ON u.id=m.user_id WHERE m.group_id=$1 ORDER BY m.joined_at,u.id',[groupId]);
   const stats = await db.query(`SELECT count(DISTINCT r.item_id) item_count,count(*) tasting_count,count(DISTINCT r.user_id) FILTER (WHERE EXISTS (SELECT 1 FROM everrate.memberships m WHERE m.group_id=r.group_id AND m.user_id=r.user_id)) active_members FROM everrate.ratings r WHERE r.group_id=$1 AND r.deleted_at IS NULL`,[groupId]);
   const row = result.rows[0]; const s = stats.rows[0];

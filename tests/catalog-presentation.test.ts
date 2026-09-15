@@ -1,0 +1,30 @@
+import {describe,it,expect} from 'vitest';
+import type {Item} from '../src/lib/contracts';
+import {rankCategories,visibleCategories,groupFavourites,discordAvatarUrl} from '../src/components/catalog-presentation';
+const item=(id:string,type:string|null,tastingCount:number,raterCount=1,average:number|null=8):Item=>({id,name:id,type,tastingCount,raterCount,average,groupId:'g',createdBy:'u',brand:null,variant:null,broadCategory:null,photoId:null,lastRatedAt:null});
+describe('collection presentation',()=>{
+ it('ranks categories by summed tastings rather than item count and breaks ties by name',()=>{
+  const ranked=rankCategories([item('1','Tea',9),item('2','Tea',8),item('3','Coffee',16),item('4','Apple',16),item('5',null,2),item('6','Unsorted',1)]);
+  expect(ranked.map(c=>[c.type,c.tastingCount,c.items.length])).toEqual([['Tea',17,2],['Apple',16,1],['Coffee',16,1],[null,2,1],['Unsorted',1,1]]);
+ });
+ it('shows five, retains a selected lower category including null, and expands every category',()=>{
+  const ranked=rankCategories(['A','B','C','D','E','F',null].map((t,n)=>item(String(n),t,10-n)));
+  expect(visibleCategories(ranked,false,'').length).toBe(5);
+  expect(visibleCategories(ranked,false,'F').map(c=>c.type)).toEqual(['A','B','C','D','E','F']);
+  expect(visibleCategories(ranked,false,null).at(-1)?.type).toBe(null);
+  expect(visibleCategories(ranked,true,'').length).toBe(7);
+ });
+ it('requires three distinct raters, regardless of repeats or score, without changing averages',()=>{
+  expect(groupFavourites([item('Solo','Tea',50,1,10),item('Two','Tea',20,2,9.9),item('Three','Tea',3,3,7.25),item('Four','Tea',4,4,8),item('No score','Tea',3,3,null)]).map(i=>[i.id,i.average])).toEqual([['Four',8],['Three',7.25]]);
+ });
+});
+describe('Discord avatar URL policy',()=>{
+ it('accepts Discord avatar and default avatar images',()=>{
+  expect(discordAvatarUrl('https://cdn.discordapp.com/avatars/123/abc.png?size=128')).toBeTruthy();
+  expect(discordAvatarUrl('https://media.discordapp.net/avatars/123/a_abc.gif')).toBeTruthy();
+  expect(discordAvatarUrl('https://cdn.discordapp.com/embed/avatars/2.png')).toBeTruthy();
+ });
+ it('rejects arbitrary hosts, credentials, ports, unsafe schemes and other Discord paths',()=>{
+  for(const url of [null,'','http://cdn.discordapp.com/avatars/123/a.png','https://evil.example/a.png','https://cdn.discordapp.com.evil.example/avatars/1/a.png','https://u@cdn.discordapp.com/avatars/1/a.png','https://cdn.discordapp.com:444/avatars/1/a.png','https://cdn.discordapp.com/attachments/123/a.png','data:image/svg+xml,test'])expect(discordAvatarUrl(url)).toBeNull();
+ });
+});

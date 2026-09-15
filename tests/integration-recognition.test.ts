@@ -1,24 +1,28 @@
 import {afterAll,afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
+import {Pool} from 'pg';
+import {migrate} from '../scripts/migrate';
 import sharp from 'sharp';
 import {getPool} from '../src/server/db';
-import {createGroup,ensureUser} from '../src/server/service';
+import {createGroup,ensureUser,updatePreferences} from '../src/server/service';
 import {uploadPhoto,getPhoto} from '../src/server/photos';
 import {recognize} from '../src/server/recognition';
 const url=process.env.TEST_DATABASE_URL;
 if(url&&(!['localhost','127.0.0.1','[::1]'].includes(new URL(url).hostname)||!new URL(url).pathname.endsWith('_test')))throw new Error('Disposable local test DB required');
-if(url)process.env.DATABASE_URL=url;
+let admin:Pool,database:string;
 const user=randomUUID(),outsider=randomUUID();let group:string,photo:string;
 const payload={candidates:[{content:{parts:[{text:JSON.stringify({name:'Test lemon drink',brand:null,variant:null,type:'Drink',broadCategory:'Food & Drink',confidence:.8})}]}}],usageMetadata:{promptTokenCount:100,candidatesTokenCount:30}};
 describe.skipIf(!url)('photo and recognition boundaries',()=>{
   beforeAll(async()=>{
+    admin=new Pool({connectionString:url});database='everrate_recognition_'+randomUUID().replaceAll('-','')+'_test';await admin.query(`CREATE DATABASE "${database}"`);const target=new URL(url!);target.pathname='/'+database;await migrate(target.toString());process.env.DATABASE_URL=target.toString();
     await ensureUser({id:user,displayName:'Recognition test'});await ensureUser({id:outsider,displayName:'Other test'});
+    await updatePreferences(user,{aiEnabled:true});
     group=(await createGroup(user,{name:'Recognition '+randomUUID()})).id;
     const data=await sharp({create:{width:2000,height:1000,channels:3,background:'#ffdd00'}}).jpeg().withMetadata().toBuffer();
     photo=(await uploadPhoto(user,group,data)).id;
     process.env.GEMINI_API_KEY='local-mock-only';process.env.RECOGNITION_DAILY_LIMIT='30';
   });
-  afterEach(()=>vi.unstubAllGlobals());afterAll(async()=>{await getPool().end();});
+  afterEach(()=>vi.unstubAllGlobals());afterAll(async()=>{await getPool().end();await admin.query(`DROP DATABASE "${database}"`);await admin.end();});
   it('re-encodes photos, strips metadata and checks membership',async()=>{
     const p=await getPhoto(user,photo);const metadata=await sharp(p.data).metadata();
     expect(metadata.width).toBe(1600);expect(metadata.height).toBe(800);expect(metadata.exif).toBeUndefined();

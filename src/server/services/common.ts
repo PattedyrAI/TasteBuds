@@ -20,8 +20,8 @@ export async function audit(db: Db, userId: string, groupId: string, action: str
   await db.query('INSERT INTO everrate.audit_events(actor_id,group_id,action,resource_id,details) VALUES($1,$2,$3,$4,$5)', [userId,groupId,action,resourceId,JSON.stringify(details)]);
 }
 export function iso(value: Date | string): string { return value instanceof Date ? value.toISOString() : value; }
-export function user(row: Record<string, any>): User { return { id: row.user_id || row.id, discordId: row.discord_id || null, nickname: row.nickname ?? null, displayName: row.nickname ?? row.display_name, avatarUrl: row.avatar_url || null }; }
-export const userColumns = 'u.id AS user_id,u.discord_id,u.nickname,u.display_name,u.avatar_url';
+export function user(row: Record<string, any>): User { return { id: row.user_id || row.id, discordId: row.discord_id || null, nickname: row.nickname ?? null, aiEnabled: row.ai_enabled === true, displayName: row.nickname ?? row.display_name, avatarUrl: row.avatar_url || null }; }
+export const userColumns = 'u.id AS user_id,u.discord_id,u.nickname,u.ai_enabled,u.display_name,u.avatar_url';
 
 export async function lookupLabel(db: Db, table: 'brands'|'item_types', groupId: string, name?: string|null): Promise<string|null> {
   if (!name) return null;

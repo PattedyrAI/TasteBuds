@@ -9,6 +9,7 @@ async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}
   return api(request,async userId=>{
     const p=(await params).path,method=request.method;
     const body = method==='POST'||method==='PATCH' ? await readJsonBody(request) : {};
+    if(p.length===2&&p[0]==='me'&&p[1]==='preferences'&&method==='PATCH')return service.updatePreferences(userId,body);
     if(p.length===1&&p[0]==='me'&&method==='PATCH')return service.updateNickname(userId,body);
     if(p.length===1&&p[0]==='bootstrap'&&method==='GET')return service.bootstrap(userId);
     if(p.length===1&&p[0]==='groups'){

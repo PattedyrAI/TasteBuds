@@ -32,11 +32,11 @@ describe.skipIf(!url)('group People and complete person history',()=>{
     await service.removeMember(owner,groupId,former);
   });
   afterAll(async()=>{if(database){await getPool().end();await admin.query(`DROP DATABASE "${database}"`);}await admin?.end();});
-  it('lists every current member once with group-only counts and no Discord identifiers',async()=>{
+  it('lists every active current reviewer once with group-only counts and no Discord identifiers',async()=>{
     const people=await service.listPeople(owner,groupId);
-    expect(people.map(p=>p.id).sort()).toEqual([owner,person,quiet].sort());
+    expect(people.map(p=>p.id).sort()).toEqual([owner,person].sort());
     expect(people.find(p=>p.id===person)).toMatchObject({displayName:'Canonical reviewer',ratingCount:3,itemCount:2});
-    expect(people.find(p=>p.id===quiet)).toMatchObject({ratingCount:0,itemCount:0,lastRatedAt:null});
+    expect(people.find(p=>p.id===quiet)).toBeUndefined();
     expect(JSON.stringify(people)).not.toContain('998877665544332211');
     expect(people.every(p=>!('discordId' in p))).toBe(true);
   });

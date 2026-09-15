@@ -90,3 +90,12 @@ After verified Discord sign-in, each person chooses a nickname and can change it
 ## Photo requirement for historical ratings
 
 The photo requirement also applies to active imported ratings. On September 15, the user explicitly requested removing every historical rating without an image. These records are soft-deleted with their previous values retained in revision history and raw source archives. They contribute to no score, count, feed or person history. An item with no remaining active ratings is hidden from the collection. Future historical imports must reconcile this policy before becoming visible.
+
+
+## Focused browsing and optional AI
+
+Collection and home category lists initially show the five categories with the most active tastings, with rating counts and a Show more control for the rest. Rank ties consistently by category name. Keep the selected filter visible when collapsing the list. Group favourites require at least three distinct current reviewers; each person's latest rating still gets one vote in the average.
+
+People and the group reviewer count include only current members with active ratings. Keep all memberships available to access control and owner management so someone without a rating can still log in and contribute. Discord profile pictures appear alongside chosen nicknames with an initials fallback.
+
+Manual entry is the default personal preference, stored on the canonical user. Attaching a required photo never calls AI. A user may enable AI assistance in Settings and then explicitly request suggestions for a photo. The recognition API also checks that preference before accessing recognition results or calling the provider. Manual name/brand matching against the group's existing items remains available in either mode. AI failure must preserve the uploaded photo and any entered details.

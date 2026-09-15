@@ -1,4 +1,5 @@
-import {query,transaction} from './db';
+import {query,transaction,getPool,type Db} from './db';
+import {validId} from './services/common';
 import {getPhoto} from './photos';
 import {findItemMatches} from './item-matches';
 import {HttpError} from './auth';
@@ -19,12 +20,18 @@ export async function detectImage(data:Buffer,mimeType:string){
   if(!text)throw new Error('unrecognised');
   return {suggestion:normalizeSuggestion(JSON.parse(text)),inputTokens:payload.usageMetadata?.promptTokenCount??null,outputTokens:(payload.usageMetadata?.candidatesTokenCount??0)+(payload.usageMetadata?.thoughtsTokenCount??0),model};
 }
+async function requireAiEnabled(userId:string,db:Db=getPool()){
+  validId(userId);const account=await db.query('SELECT ai_enabled FROM everrate.users WHERE id=$1',[userId]);
+  if(account.rows[0]?.ai_enabled!==true)throw new HttpError('AI assistance is disabled. Enable it in your preferences to use photo recognition.',403);
+}
 export async function recognize(userId:string,photoId:string):Promise<RecognitionResult>{
+  await requireAiEnabled(userId);
   const photo=await getPhoto(userId,photoId),model=process.env.GEMINI_MODEL||'gemini-3.1-flash-lite';
   if(photo.owner_id!==userId)throw new HttpError('Choose your own photo for recognition.',403);
   const reservation=await transaction(async tx=>{
     await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`recognition-photo:${photo.group_id}:${photo.sha256}`]);
     await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`recognition:${userId}`]);
+    await requireAiEnabled(userId,tx);
     const cached=await tx.query("SELECT result FROM everrate.recognition_jobs WHERE group_id=$1 AND photo_hash=$2 AND model=$3 AND prompt_version=$4 AND status='completed' ORDER BY created_at DESC LIMIT 1",[photo.group_id,photo.sha256,model,PROMPT_VERSION]);
     if(cached.rowCount)return {cached:cached.rows[0].result as RecognitionSuggestion,id:null};
     const pending=await tx.query("SELECT id FROM everrate.recognition_jobs WHERE group_id=$1 AND photo_hash=$2 AND model=$3 AND prompt_version=$4 AND status='processing' AND created_at>now()-interval '2 minutes' LIMIT 1",[photo.group_id,photo.sha256,model,PROMPT_VERSION]);
@@ -38,11 +45,12 @@ export async function recognize(userId:string,photoId:string):Promise<Recognitio
   if(!reservation.cached&&!reservation.id)return {status:'failed',suggestion:null,matches:[],message:'This photo is already being read. Wait a moment, or fill in the details yourself.'};
   let suggestion=reservation.cached;
   if(!suggestion){
-    try {const result=await detectImage(photo.data,photo.mime_type);suggestion=result.suggestion;
+    try {await requireAiEnabled(userId);const result=await detectImage(photo.data,photo.mime_type);suggestion=result.suggestion;
       await query("UPDATE everrate.recognition_jobs SET status='completed',result=$2,input_tokens=$3,output_tokens=$4,completed_at=now() WHERE id=$1",[reservation.id,suggestion,result.inputTokens,result.outputTokens]);
     }catch(error){
       const failure=error instanceof Error&&/^provider_\d+$|not_configured|unrecognised|invalid_model$/.test(error.message)?error.message:'recognition_failed';
-      await query("UPDATE everrate.recognition_jobs SET status='failed',failure_class=$2,completed_at=now() WHERE id=$1",[reservation.id,failure]);
+      await query("UPDATE everrate.recognition_jobs SET status='failed',failure_class=$2,completed_at=now() WHERE id=$1",[reservation.id,error instanceof HttpError&&error.status===403?'ai_disabled':failure]);
+      if(error instanceof HttpError&&error.status===403)throw error;
       return {status:'failed',suggestion:null,matches:[],message:'We could not identify this photo. Fill in what you know and save your rating.'};
     }
   }

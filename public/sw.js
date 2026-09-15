@@ -1,4 +1,4 @@
-const CACHE='tastebuds-public-v1';
+const CACHE='tastebuds-public-v2';
 const OFFLINE='/offline.html';
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll([OFFLINE,'/icon-192.png'])).then(()=>self.skipWaiting()));

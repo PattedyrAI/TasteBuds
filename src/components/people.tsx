@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight} from 'lucide-react';
 import type {Person,PersonRatingsPage} from '@/lib/contracts';
-import {Photo,Score,date,request} from './ui';
+import {Avatar,Photo,Score,date,request} from './ui';
 
 export function People({groupId,personId,select,open}:{groupId:string;personId:string|null;select:(id:string|null)=>void;open:(itemId:string)=>void}){
   const [people,setPeople]=useState<Person[]|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
@@ -14,7 +14,7 @@ export function People({groupId,personId,select,open}:{groupId:string;personId:s
   if(personId)return <PersonHistory key={`${groupId}-${personId}`} groupId={groupId} personId={personId} back={()=>select(null)} open={open}/>;
   return <section aria-label="People in this group">
     {error?<div className="error" role="alert">{error} <button onClick={()=>setRetry(v=>v+1)}>Try again</button></div>:!people?<p role="status">Loading your people…</p>:<div className="people-grid">{people.map(person=><button className="person-card" key={person.id} onClick={()=>select(person.id)}>
-      <div className="avatar" aria-hidden="true">{person.displayName.slice(0,1)}</div>
+      <Avatar name={person.displayName} url={person.avatarUrl}/>
       <div className="person-copy"><h2>{person.displayName}</h2><p>{person.ratingCount} {person.ratingCount===1?'rating':'ratings'} · {person.itemCount} {person.itemCount===1?'item':'items'}</p><small>{person.lastRatedAt?`Last tried ${date(person.lastRatedAt)}`:'Their first rating is still to come.'}</small></div><ArrowUpRight size={18} aria-hidden="true"/>
     </button>)}</div>}
     <style jsx>{`
@@ -45,7 +45,7 @@ function PersonHistory({groupId,personId,back,open}:{groupId:string;personId:str
   }
   return <section aria-label="Person’s rating history">
     <button className="text-button back" onClick={back}><ArrowLeft size={16}/> All people</button>
-    {page&&<><div className="person-heading"><div className="avatar" aria-hidden="true">{page.person.displayName.slice(0,1)}</div><div><h2>{page.person.displayName}</h2><p>Every rating in this group, including repeat tastings.</p></div></div>
+    {page&&<><div className="person-heading"><Avatar name={page.person.displayName} url={page.person.avatarUrl}/><div><h2>{page.person.displayName}</h2><p>Every rating in this group, including repeat tastings.</p></div></div>
       <div className="stat-strip person-stats"><div><strong>{page.person.ratingCount}</strong><span>ratings</span></div><div><strong>{page.person.itemCount}</strong><span>items tried</span></div></div>
       {page.ratings.length===0?<div className="empty-state"><h3>No ratings yet.</h3><p>Their first tasting will appear here.</p></div>:<div className="history-list">{page.ratings.map(r=><button className="history-card" key={r.id} onClick={()=>open(r.itemId)}>
         <div className="history-photo"><Photo id={r.photoId} name={r.itemName}/></div><div className="history-copy"><h3>{r.itemName} <ArrowUpRight size={15} aria-hidden="true"/></h3>{(r.brand||r.variant)&&<p>{[r.brand,r.variant].filter(Boolean).join(' · ')}</p>}<time dateTime={r.tastedAt}>{date(r.tastedAt)}</time>{r.note&&<p className="note">{r.note}</p>}{!r.photoId&&r.legacyPhotoMissing&&<small>Historical rating · original photo unavailable</small>}</div><Score value={r.score}/>

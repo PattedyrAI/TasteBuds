@@ -5,10 +5,11 @@ A private place for friends to rate what they try. Browse food and drink subcate
 ## What it does
 
 - Requires a photo for every new rating.
-- Uses Gemini to suggest the item, brand and subcategory from the photo; people review the suggestions before saving.
+- Starts in manual mode. People can enable Gemini assistance in Settings and explicitly request photo suggestions; uploading never starts AI automatically.
 - Keeps repeat tastings and corrections, with group scores based on each person's latest rating.
 - Links verified Discord identities to permanent people records and their historical reviews.
-- Lets each person choose a nickname for all their reviews and change it in Settings.
+- Shows Discord profile photos and lets each person choose a nickname for all their reviews.
+- Prioritises the five most-reviewed categories and only calls an item a group favourite after three people have rated it.
 - Supports private groups, invitations, comments and optional Discord announcements.
 - Installs from a supported browser onto a phone or desktop as a progressive web app.
 
