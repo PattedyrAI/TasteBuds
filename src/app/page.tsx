@@ -1,0 +1,10 @@
+import Link from 'next/link';
+import {InstallApp} from '@/components/install-app';
+import {Camera,Users,History,ArrowUpRight,Star} from 'lucide-react';
+export default async function Welcome({searchParams}:{searchParams:Promise<{error?:string}>}){
+  const error=(await searchParams).error;
+  return <main className="welcome"><header className="welcome-header"><Link className="wordmark" href="/">TasteBuds<span>✳</span></Link><a className="button ghost" href="/auth/login">Sign in <ArrowUpRight size={17}/></a></header>
+    <section className="welcome-main"><div className="welcome-copy"><div className="welcome-badge"><Users size={16}/> A little collection of your collective taste</div><h1>Worth trying?<br/>Ask your people.</h1><p>The coffee you went back for. The burger that divided the group. Keep what you tried, what you thought, and who agreed.</p><a className="button primary large" href="/auth/login">Continue with Discord <ArrowUpRight size={19}/></a><InstallApp/><span className="fine-print">Your groups are private. Your opinions don’t have to match.</span>{error&&<p role="alert" className="error">Sign-in didn’t finish. Try connecting with Discord again.</p>}</div>
+      <div className="welcome-art" aria-hidden="true"><div className="art-orbit"><Star size={34}/></div><div className="tasting-note"><span className="note-date">Your next great find</span><div className="cup"><div className="cup-handle"/></div><div className="note-bottom"><span>A moment worth<br/>remembering.</span><span className="score-stamp">?/10</span></div></div><div className="art-caption">Good taste, shared.</div></div></section>
+    <section className="welcome-features"><div><Camera/><h2>Snap it. Rate it.</h2><p>Every rating starts with a photo. We suggest the details; you have the final say.</p></div><div><Users/><h2>Keep it in the group.</h2><p>Build a collection with your friends and compare notes.</p></div><div><History/><h2>Taste changes.</h2><p>Try it again. Keep every rating, from first impression to old favourite.</p></div></section><footer className="welcome-footer">TasteBuds <span>A place for the things you try.</span></footer></main>;
+}

@@ -1,5 +1,0 @@
--- ScawwyRate seed data.
--- Empty by design. Reference data that must exist in EVERY environment (the
--- fixed category set) is seeded inside the migrations, so it ships to
--- production via `supabase db push` — seed.sql only runs on local `db reset`.
--- Profiles are created by the handle_new_user trigger on Discord signup.
