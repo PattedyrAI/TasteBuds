@@ -8,6 +8,7 @@ A private place for friends to rate what they try. Browse food and drink subcate
 - Uses Gemini to suggest the item, brand and subcategory from the photo; people review the suggestions before saving.
 - Keeps repeat tastings and corrections, with group scores based on each person's latest rating.
 - Links verified Discord identities to permanent people records and their historical reviews.
+- Lets each person choose a nickname for all their reviews and change it in Settings.
 - Supports private groups, invitations, comments and optional Discord announcements.
 - Installs from a supported browser onto a phone or desktop as a progressive web app.
 

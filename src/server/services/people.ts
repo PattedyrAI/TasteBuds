@@ -15,7 +15,7 @@ function decodeCursor(value?:string):Cursor|null {
 }
 
 // Explicit public fields: account-provider identifiers never enter this response.
-const personJson=`jsonb_build_object('id',u.id,'displayName',u.display_name,'avatarUrl',u.avatar_url,
+const personJson=`jsonb_build_object('id',u.id,'displayName',coalesce(u.nickname,u.display_name),'avatarUrl',u.avatar_url,
   'role',m.role,'joinedAt',m.joined_at,'ratingCount',s.rating_count,'itemCount',s.item_count,'lastRatedAt',s.last_rated_at)`;
 export async function listPeople(userId:string,groupId:string):Promise<Person[]> {
   return transaction(async db=>{
@@ -24,7 +24,7 @@ export async function listPeople(userId:string,groupId:string):Promise<Person[]>
       FROM everrate.memberships m JOIN everrate.users u ON u.id=m.user_id
       LEFT JOIN LATERAL (SELECT count(*) AS rating_count,count(DISTINCT r.item_id) AS item_count,max(r.tasted_at) AS last_rated_at
         FROM everrate.ratings r WHERE r.group_id=m.group_id AND r.user_id=m.user_id AND r.deleted_at IS NULL) s ON true
-      WHERE m.group_id=$1 ORDER BY lower(u.display_name),u.id`,[groupId]);
+      WHERE m.group_id=$1 ORDER BY lower(coalesce(u.nickname,u.display_name)),u.id`,[groupId]);
     return result.rows.map(row=>row.person as Person);
   });
 }

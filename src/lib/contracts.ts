@@ -1,5 +1,5 @@
 /** Public browser/server contracts. Never add provider credentials to these types. */
-export interface User { id: string; discordId: string | null; displayName: string; avatarUrl: string | null }
+export interface User { id: string; discordId: string | null; nickname: string | null; displayName: string; avatarUrl: string | null }
 export interface Group { id: string; name: string; ownerId: string; role: 'owner' | 'member'; memberCount: number; createdAt: string }
 export interface Member extends User { role: 'owner' | 'member'; joinedAt: string }
 export interface Person { id: string; displayName: string; avatarUrl: string | null; role: 'owner' | 'member'; joinedAt: string; ratingCount: number; itemCount: number; lastRatedAt: string | null }

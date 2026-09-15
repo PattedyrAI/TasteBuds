@@ -2,7 +2,19 @@ import {z} from 'zod';
 import type {User} from '../../lib/contracts';
 import {idSchema,nameSchema} from '../../domain/validation';
 import {transaction} from '../db';
-import {parse,ServiceError,user} from './common';
+import {parse,ServiceError,user,validId} from './common';
+
+const nicknameSchema=z.object({nickname:z.string().trim().min(1,'Choose a nickname.').max(40,'Use at most 40 characters.').refine(value=>!/[\p{Cc}\u2028\u2029]/u.test(value),'Use a single-line nickname without control characters.')}).strict();
+
+/** The actor comes only from the authenticated session; input cannot select another user. */
+export async function updateNickname(userId:string,input:unknown):Promise<User>{
+ validId(userId);const {nickname}=parse(nicknameSchema,input);
+ return transaction(async db=>{
+  const result=await db.query('UPDATE everrate.users SET nickname=$2 WHERE id=$1 RETURNING *',[userId,nickname]);
+  if(!result.rowCount)throw new ServiceError(404,'Person not found');
+  return user(result.rows[0]);
+ });
+}
 
 /** Identity inputs must come from a server-validated provider session, never profile text. */
 export async function ensureUser(input:{id:string;discordId?:string|null;displayName:string;avatarUrl?:string|null}):Promise<User>{

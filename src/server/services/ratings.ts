@@ -32,7 +32,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     const result = await db.query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,note,tasted_at,photo_id,idempotency_key,request_hash) VALUES($1,$2,$3,$4,$5,coalesce($6::timestamptz,now()),$7,$8,$9) RETURNING id',[value.groupId,itemId,userId,value.score,value.note || null,value.tastedAt || null,value.photoId || null,value.idempotencyKey || null,requestHash]);
     const rating = await getRatingRecord(db,result.rows[0].id);
     await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,payload)
-      SELECT r.group_id,r.id,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'score',r.score,'note',r.note,'authorName',u.display_name,'groupName',g.name)
+      SELECT r.group_id,r.id,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
       FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled WHERE r.id=$1`,[rating.id]);
     return rating;
   });

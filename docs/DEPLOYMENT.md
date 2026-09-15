@@ -76,7 +76,7 @@ Before promotion:
 4. Apply migrations and the reviewed promotion through the controlled database operation. Grant the runtime role only what the application needs. Verify schema versions, group/user relationships, private-schema isolation and historical counts before starting the new app.
 5. Confirm historical import produced zero Discord outbox entries. Do not silently turn ambiguous parser proposals into active ratings.
 
-Every **new** rating, including a repeated tasting, requires a photo. Historical photo exceptions remain flagged and visible in reconciliation; they do not justify relaxing the new-rating rule. Preserve old correction snapshots as revisions when their original tasting date or author cannot be established.
+Every **new** rating, including a repeated tasting, requires a photo. Photo-less historical records are retained as soft-deleted records and revisions; they do not count as active ratings. Reconcile this policy before making any future import visible. Preserve old correction snapshots as revisions when their original tasting date or author cannot be established.
 
 ## Reviewed database promotion helper
 
@@ -163,9 +163,13 @@ Record these as independent evidence, with timestamps and the tested release:
 
 ## Current verification boundary (September 15, 2026)
 
-The corrected **local preview** contains 365 physical items, 360 visible items, 454 ratings and 358 photos. The sealed import archive still has its own earlier baseline and checksums. Production promotion of all 1,006 original blobs has committed and passed independent byte/hash and count verification. The runtime role has been provisioned and its restricted permissions verified. Reviewed corrections are being applied separately; local preview counts alone are not production evidence.
+The reviewed historical corrections committed to production and passed independent verification: 454 physical ratings, 365 physical items, 358 photos, and all 1,006 archived blobs (2,569,695,105 bytes) with matching hashes. The restricted runtime role is provisioned and verified.
 
-Canonical account resolution, read-only alias permissions and People history have passing focused database tests and independent review. Source/bundle `7bdfb605…` has a recorded successful build. Record a new exact release marker and build result for later changes. Deployment success and real authenticated browser checks of canonical history, People and the complete rating flow remain pending; an earlier local OAuth round trip does not prove the new behavior in production.
+The user's subsequent photo requirement removed 71 photo-less ratings from active use, preserving each previous value in revision history. Production now has **383 active ratings and 304 visible items**, with **41 active photographed reviews** for the confirmed linked person. Physical rating/item rows and original archives remain preserved. No import or removal announcements were queued.
+
+Release `c1fe0473c326265788eae075ea7b71afbd2b5ae6` reached Railway `SUCCESS` as deployment `96e04848-0b6c-4125-af49-5db9c082cc09`. Public HTTPS, matching health marker, private API denial, cross-origin rejection, PWA assets and OAuth initiation passed. Real Safari Discord login resolved the existing person and group. The installed macOS TasteBuds app launched with the signed-in session and rejected photo-less entry by disabling Save.
+
+Migration `004_user_nickname.sql` committed to production after a read-only preflight and independent review. All original user fields, rating rows, revision rows and photo bytes/hashes matched before and after. Nickname selection is the next application release; the earlier application remains compatible with this nullable column. The combined source passed typecheck, build, 144 unit tests and 47 database integration tests. Focused database/API and synthetic browser tests cover first-use selection, later editing, provider refresh and retained historical ownership. Record deployment and live chooser evidence separately. A saved real tasting, edit/reload lifecycle and actual authorized Discord channel receipt remain separate acceptance checks.
 
 ## Backup, restore and rollback
 

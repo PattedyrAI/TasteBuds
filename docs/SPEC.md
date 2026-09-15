@@ -82,3 +82,11 @@ The original checkout and its uncommitted import work are retained privately. Th
 Existing Discord Auth and Gemini integrations are reused through private runtime configuration. No credentials belong in this document.
 
 Official references: https://supabase.com/docs/guides/auth/server-side/creating-a-client ; https://nextjs.org/docs/app/guides/data-security ; https://ai.google.dev/gemini-api/docs/structured-output ; https://docs.discord.com/developers/resources/webhook .
+
+## Personal display names
+
+After verified Discord sign-in, each person chooses a nickname and can change it in Settings. Store the nickname separately from the provider profile; all existing review, comment and member labels resolve it live. Nicknames are trimmed single-line text, 1–40 characters, need not be unique, and never determine account identity. Only the authenticated person may change their nickname.
+
+## Photo requirement for historical ratings
+
+The photo requirement also applies to active imported ratings. On September 15, the user explicitly requested removing every historical rating without an image. These records are soft-deleted with their previous values retained in revision history and raw source archives. They contribute to no score, count, feed or person history. An item with no remaining active ratings is hidden from the collection. Future historical imports must reconcile this policy before becoming visible.
