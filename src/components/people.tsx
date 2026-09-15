@@ -1,4 +1,5 @@
 'use client';
+import {RatingStatus} from './rating-status';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight} from 'lucide-react';
 import type {Person,PersonRatingsPage} from '@/lib/contracts';
@@ -48,7 +49,7 @@ function PersonHistory({groupId,personId,back,open}:{groupId:string;personId:str
     {page&&<><div className="person-heading"><Avatar name={page.person.displayName} url={page.person.avatarUrl}/><div><h2>{page.person.displayName}</h2><p>Every rating in this group, including repeat tastings.</p></div></div>
       <div className="stat-strip person-stats"><div><strong>{page.person.ratingCount}</strong><span>ratings</span></div><div><strong>{page.person.itemCount}</strong><span>items tried</span></div></div>
       {page.ratings.length===0?<div className="empty-state"><h3>No ratings yet.</h3><p>Their first tasting will appear here.</p></div>:<div className="history-list">{page.ratings.map(r=><button className="history-card" key={r.id} onClick={()=>open(r.itemId)}>
-        <div className="history-photo"><Photo id={r.photoId} name={r.itemName}/></div><div className="history-copy"><h3>{r.itemName} <ArrowUpRight size={15} aria-hidden="true"/></h3>{(r.brand||r.variant)&&<p>{[r.brand,r.variant].filter(Boolean).join(' · ')}</p>}<time dateTime={r.tastedAt}>{date(r.tastedAt)}</time>{r.note&&<p className="note">{r.note}</p>}{!r.photoId&&r.legacyPhotoMissing&&<small>Historical rating · original photo unavailable</small>}</div><Score value={r.score}/>
+        <div className="history-photo"><Photo id={r.photoId} name={r.itemName}/></div><div className="history-copy"><h3>{r.itemName} <ArrowUpRight size={15} aria-hidden="true"/></h3>{(r.brand||r.variant)&&<p>{[r.brand,r.variant].filter(Boolean).join(' · ')}</p>}<time dateTime={r.tastedAt}>{date(r.tastedAt)}</time><RatingStatus rating={r}/>{r.note&&<p className="note">{r.note}</p>}{!r.photoId&&r.legacyPhotoMissing&&<small>Historical rating · original photo unavailable</small>}</div><Score value={r.score}/>
       </button>)}</div>}
       <p className="muted" role="status">Showing {page.ratings.length} of {page.person.ratingCount} ratings</p>
     </>}

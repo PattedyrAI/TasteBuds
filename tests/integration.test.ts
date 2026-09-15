@@ -34,10 +34,42 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     const item = await service.getItem(users[1], a.itemId);
     expect(item).toMatchObject({ average: 7, raterCount: 2, tastingCount: 3 });
     expect(item.ratings).toHaveLength(3);
+    expect(item.ratings.find(r=>r.id===a.id)).toMatchObject({isRereview:false,countsTowardAverage:false});
+    expect(item.ratings.find(r=>r.author.id===users[0]&&r.id!==a.id)).toMatchObject({isRereview:true,countsTowardAverage:true});
+    expect(item.ratings.find(r=>r.author.id===users[1])).toMatchObject({isRereview:false,countsTowardAverage:true});
+    const feed=await service.getFeed(users[0],groupId,{limit:1});
+    const mine=await service.getPersonRatings(users[0],groupId,users[0],{limit:1});
+    expect(mine.ratings[0]).toMatchObject({isRereview:true,countsTowardAverage:true});
+    expect(feed[0].countsTowardAverage).toBe(true);
+
     const unknown = await createWithPhoto(users[0], { groupId, name: 'Cola', score: 5 });
     const variant = await createWithPhoto(users[0], { groupId, name: 'Cola', brand: 'Coke', variant: 'Zero', score: 5 });
     expect(new Set([a.itemId, unknown.itemId, variant.itemId]).size).toBe(3);
     await expect(service.getItem(users[2], a.itemId)).rejects.toMatchObject({ status: 404 });
+  });
+  it('keeps backdated rereviews out of the average and restores the previous score after deletion', async () => {
+    const first=await createWithPhoto(users[0],{groupId,name:'Rereview timeline',score:3,tastedAt:'2024-01-01T12:00:00Z'});
+    const latest=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:9,tastedAt:'2025-01-01T12:00:00Z'});
+    const backdated=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:1,tastedAt:'2023-01-01T12:00:00Z'});
+    await createWithPhoto(users[1],{groupId,itemId:first.itemId,score:5});
+    const before=await service.getItem(users[0],first.itemId);
+    expect(before).toMatchObject({average:7,raterCount:2,tastingCount:4});
+    expect(before.ratings.find(r=>r.id===latest.id)).toMatchObject({isRereview:true,countsTowardAverage:true});
+    expect(before.ratings.find(r=>r.id===backdated.id)).toMatchObject({isRereview:false,countsTowardAverage:false});
+    await service.deleteRating(users[0],latest.id);
+    const after=await service.getItem(users[0],first.itemId);
+    expect(after).toMatchObject({average:4,raterCount:2,tastingCount:3});
+    expect(after.ratings.find(r=>r.id===first.id)).toMatchObject({isRereview:true,countsTowardAverage:true});
+    expect(after.ratings.filter(r=>r.countsTowardAverage)).toHaveLength(2);
+  });
+  it('marks exactly one counting review when tasting and creation timestamps tie', async () => {
+    const first=await createWithPhoto(users[0],{groupId,name:'Tied rereviews',score:4,tastedAt:'2024-01-01T12:00:00Z'});
+    const second=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:8,tastedAt:'2024-01-01T12:00:00Z'});
+    await getPool().query("UPDATE everrate.ratings SET created_at='2024-01-01T12:00:00Z' WHERE id=ANY($1::uuid[])",[[first.id,second.id]]);
+    const item=await service.getItem(users[0],first.itemId),winner=[first,second].sort((a,b)=>b.id.localeCompare(a.id))[0];
+    expect(item.average).toBe(winner.score);
+    expect(item.ratings.filter(r=>r.countsTowardAverage).map(r=>r.id)).toEqual([winner.id]);
+    expect(item.ratings.find(r=>r.id===winner.id)?.isRereview).toBe(true);
   });
   it('serializes concurrent submits with the same idempotency key', async () => {
     const input = { groupId, name: 'Concurrent', score: 7, idempotencyKey: randomUUID() };
