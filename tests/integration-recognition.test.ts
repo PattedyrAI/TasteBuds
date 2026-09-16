@@ -5,7 +5,7 @@ import {migrate} from '../scripts/migrate';
 import sharp from 'sharp';
 import {getPool} from '../src/server/db';
 import {createGroup,ensureUser,updatePreferences} from '../src/server/service';
-import {uploadPhoto,getPhoto} from '../src/server/photos';
+import {uploadPhoto,getPhoto,readImageBody} from '../src/server/photos';
 import {recognize} from '../src/server/recognition';
 const url=process.env.TEST_DATABASE_URL;
 if(url&&(!['localhost','127.0.0.1','[::1]'].includes(new URL(url).hostname)||!new URL(url).pathname.endsWith('_test')))throw new Error('Disposable local test DB required');
@@ -28,6 +28,18 @@ describe.skipIf(!url)('photo and recognition boundaries',()=>{
     expect(metadata.width).toBe(1600);expect(metadata.height).toBe(800);expect(metadata.exif).toBeUndefined();
     await expect(getPhoto(outsider,photo)).rejects.toMatchObject({status:404});
     await expect(uploadPhoto(outsider,group,Buffer.from('bad'))).rejects.toMatchObject({status:404});
+  });
+  it('uploads actual JPGs even when browser type metadata is missing or nonstandard',async()=>{
+    const jpeg=await sharp({create:{width:7,height:5,channels:3,background:'blue'}}).jpeg({progressive:true}).toBuffer();
+    for(const type of ['image/jpeg','image/jpg','','application/octet-stream']){
+      const body=await readImageBody(new Request('https://example.test/api/photos',{method:'POST',headers:type?{'Content-Type':type}:{},body:new Uint8Array(jpeg)}));
+      const uploaded=await uploadPhoto(user,group,body),stored=await getPhoto(user,uploaded.id);
+      expect(uploaded).toMatchObject({mimeType:'image/jpeg',width:7,height:5});
+      expect((await sharp(stored.data).metadata()).format).toBe('jpeg');
+    }
+  });
+  it('rejects non-image bytes and unsupported content masquerading as a JPG',async()=>{
+    for(const input of [Buffer.from('not a photo'),Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="red"/></svg>')])await expect(uploadPhoto(user,group,input)).rejects.toMatchObject({status:400});
   });
   it('reserves a single in-flight provider call and caches successful results',async()=>{
     let release!:(value:Response)=>void;let entered!:()=>void;const started=new Promise<void>(resolve=>entered=resolve);

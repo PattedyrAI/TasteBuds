@@ -26,7 +26,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,close,saved
     uploadController.current?.abort();const operation=new AbortController();uploadController.current=operation;
     setError('');setHint('');setBusy('Uploading your photo…');
     try{
-      const response=await fetch(`/api/photos?groupId=${groupId}`,{method:'POST',headers:{'Content-Type':file.type},body:file,signal:operation.signal});
+      const response=await fetch(`/api/photos?groupId=${groupId}`,{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file,signal:operation.signal});
       const p=await response.json() as UploadedPhoto&{error?:string};if(!response.ok)throw new Error(p.error||'Could not upload this photo.');
       if(operation.signal.aborted)return;
       setPhotoId(p.id);setHint(itemId?'Photo attached to this tasting.':'Photo attached. Fill in the item details below.');
@@ -52,7 +52,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,close,saved
     saved();
   }catch(e){setError(e instanceof Error?e.message:'Could not save.');setBusy('');}}
   return <Modal title={editing?'Edit your rating':rereview?'Rereview this item':'What did you try?'} close={close}><form onSubmit={save} className="rating-form">{rereview&&<p className="rereview-hint">Your earlier photo is ready to reuse. Tap it to change it. Your previous review stays in your history; only your latest score counts.</p>}
-    {<><input ref={input} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);}}/><button type="button" className={`upload ${photoId?'has-photo':''}`} disabled={!!busy} onClick={()=>input.current?.click()}>{photoId?<Photo id={photoId} name="Your photo"/>:<><Camera size={30}/><strong>Add a photo · required</strong><span>Take a photo or choose one from your library.</span></>}</button></>}
+    {<><input ref={input} className="sr-only" type="file" aria-label="Upload a photo" accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={e=>{const f=e.target.files?.[0];e.currentTarget.value='';if(f)void upload(f);}}/><button type="button" className={`upload ${photoId?'has-photo':''}`} disabled={!!busy} onClick={()=>input.current?.click()}>{photoId?<Photo id={photoId} name="Your photo"/>:<><Camera size={30}/><strong>Add a photo · required</strong><span>Take a photo or choose one from your library.</span></>}</button></>}
     {!editing&&!itemId&&<div className="recognition-choice">{aiEnabled?<><button type="button" className="button secondary" disabled={!photoId||!!busy} onClick={()=>void recognize()}>Suggest details with AI</button><p className="hint">Optional. Only this button sends your photo to AI. Check the suggested details before saving.</p></>:<p className="hint"><strong>Manual mode.</strong> Your photo won’t be sent to AI. Fill in the details below, or enable AI assistance in Settings.</p>}</div>}
     {busy&&<p className="inline-status" role="status"><LoaderCircle size={17} className="spin"/>{busy}</p>}{hint&&<p className="hint">{hint}</p>}
     {matches.length>0&&<div className="match-list"><strong>Already in your group?</strong>{matches.map(m=><button type="button" key={m.id} disabled={!!busy} onClick={()=>choose(m)}><span>{m.name}<small>{[m.brand,m.variant].filter(Boolean).join(' · ')||'Brand unknown'}</small></span><Check size={18}/></button>)}<span className="muted">Or use the details below to add a new item.</span></div>}

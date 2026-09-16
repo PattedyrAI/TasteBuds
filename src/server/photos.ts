@@ -6,7 +6,9 @@ import {z} from 'zod';
 import {requireMembership} from './service';
 
 export async function readImageBody(request:Request) {
-  if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(request.headers.get('content-type')?.split(';')[0]||''))throw new HttpError('Choose a JPEG, PNG, WebP or HEIC photo.',400);
+  const type=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()||'';
+  // Some file pickers report JPG aliases or no MIME type. Decoded bytes remain authoritative.
+  if(!['image/jpeg','image/jpg','image/pjpeg','image/png','image/webp','image/heic','image/heif','application/octet-stream',''].includes(type))throw new HttpError('Choose a JPEG, PNG, WebP or HEIC photo.',400);
   const reader=request.body?.getReader();if(!reader)throw new HttpError('Choose a photo.',400);
   const chunks:Uint8Array[]=[];let size=0;
   while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>10*1024*1024){await reader.cancel();throw new HttpError('Choose a photo smaller than 10 MB.',413);}chunks.push(value);}
@@ -18,7 +20,10 @@ export async function uploadPhoto(userId:string,groupId:string,input:Buffer){
   if(!member.rowCount)throw new HttpError('Group not found.',404);
   let data:Buffer,width:number,height:number;
   try {
-    const output=await sharp(input,{limitInputPixels:40_000_000,failOn:'error'}).rotate().resize(1600,1600,{fit:'inside',withoutEnlargement:true}).jpeg({quality:82}).toBuffer({resolveWithObject:true});
+    const image=sharp(input,{limitInputPixels:40_000_000,failOn:'error'});
+    const metadata=await image.metadata();
+    if(!metadata.format||!['jpeg','png','webp','heif'].includes(metadata.format))throw new Error('Unsupported photo format');
+    const output=await image.rotate().resize(1600,1600,{fit:'inside',withoutEnlargement:true}).jpeg({quality:82}).toBuffer({resolveWithObject:true});
     data=output.data;width=output.info.width;height=output.info.height;
   }catch{throw new HttpError('This photo could not be read. Try a JPEG or PNG.',400);}
   const sha=createHash('sha256').update(data).digest('hex');
