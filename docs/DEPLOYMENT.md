@@ -230,3 +230,11 @@ Release `9a08f9fdeb6d593bbd156ae2fbaf5f6c68b3f1bb` reached Railway `SUCCESS` as 
 A real Safari check confirmed that the linked person remains the sole group owner and every other account is a member. My reviews showed the existing 41 ratings with direct edit/delete controls. A real category check confirmed 25 browsing groups, reduced from 49, and aggregated tasting counts. No production reviews were changed during verification.
 
 Build/TypeScript and independent review passed. Validation included 169 unit tests, 66 database integration tests, 11 personal-review browser checks and five delayed-edit navigation cases. Tests exercised self-edit/delete, cancelled deletion, denied cross-author changes and self-promotion, and six mobile navigation targets of at least 44px at 320px and 390px. No schema or membership changes were needed.
+
+## Combined search, half-point ratings and brand labels (September 16, 2026)
+
+Release `88913341492fd302f4ae6b47935e58f2bcbd7c09` reached Railway `SUCCESS` as `235b6d98-a92c-415a-a771-6a1e3e8518a7`. All nine public checks passed against the exact source marker at 06:49 UTC. It includes search/half-rating source `e3ebc9df9be2c422cc82546b087ba140e1c5497a`, which was not deployed separately.
+
+Search matches every query word across brand, item/model, variant and category, with case, accent and punctuation normalization and compact brand spelling support. The rating picker offers 19 choices from 1 to 10 in half-point steps; existing decimal values are preserved. Brands use a shared bold label above model names on cards/podium, with consistent styling in details and histories. No database migration or permission change was required.
+
+Verification: 173 unit tests, 66 database integration tests including decimal persistence, build/TypeScript, 14 focused search/half-score browser checks, 15 brand checks and 50 responsive regression checks passed. Independent review approved the changes. Screenshots cover 320px, 390px and desktop layouts, long brand wrapping and at least 44px half-score buttons. A real Safari search for `red bull winter edition` returned four matching production items with the distinct Red Bull label. The live new-rating form displayed all half-point choices and kept Save disabled without a photo; it was closed without saving. Browser writes used synthetic fixture data only.
