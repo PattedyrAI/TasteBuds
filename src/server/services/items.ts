@@ -1,3 +1,4 @@
+import {ratingPhotoColumns} from './rating-photos';
 import { z } from 'zod';
 import {ratingStatusColumns} from './rating-status';
 import type { Comment, FeedEntry, Item, ItemDetail, ItemFilters, Rating, UpdateItemInput } from '../../lib/contracts';
@@ -30,7 +31,7 @@ async function personalItems(db: Db, rows: Record<string, any>[], userId: string
   const byId = new Map(personal.rows.map(row=>[row.id,row]));
   return rows.map(row=>{const own=byId.get(row.id)!;return {...item(row),myScore:own.my_score===null?null:Number(own.my_score),saved:own.saved};});
 }
-export const ratingSelect = `SELECT r.*,${ratingStatusColumns},${userColumns},i.name item_name,b.name brand,i.variant FROM everrate.ratings r JOIN everrate.users u ON u.id=r.user_id JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id`;
+export const ratingSelect = `SELECT r.*,${ratingPhotoColumns},${ratingStatusColumns},${userColumns},i.name item_name,b.name brand,i.variant FROM everrate.ratings r JOIN everrate.users u ON u.id=r.user_id JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id`;
 export function comment(row: Record<string, any>): Comment { return {id:row.id,ratingId:row.rating_id,author:user(row),body:row.body,createdAt:iso(row.created_at)}; }
 export async function ratingRows(db: Db, rows: Record<string, any>[]): Promise<FeedEntry[]> {
   if (!rows.length) return [];
@@ -41,7 +42,7 @@ export async function ratingRows(db: Db, rows: Record<string, any>[]): Promise<F
     if (!list) { list = []; byRating.set(row.rating_id,list); }
     list.push(comment(row));
   }
-  return rows.map(row=>({isRereview:row.is_rereview,countsTowardAverage:row.counts_toward_average,id:row.id,groupId:row.group_id,itemId:row.item_id,author:user(row),score:Number(row.score),note:row.note,tastedAt:iso(row.tasted_at),createdAt:iso(row.created_at),updatedAt:iso(row.updated_at),photoId:row.photo_id,legacyPhotoMissing:row.legacy_photo_missing,comments:byRating.get(row.id)||[],itemName:row.item_name,brand:row.brand,variant:row.variant}));
+  return rows.map(row=>({isRereview:row.is_rereview,countsTowardAverage:row.counts_toward_average,id:row.id,groupId:row.group_id,itemId:row.item_id,author:user(row),score:Number(row.score),note:row.note,tastedAt:iso(row.tasted_at),createdAt:iso(row.created_at),updatedAt:iso(row.updated_at),photoId:row.photo_id,photoIds:row.photo_ids,legacyPhotoMissing:row.legacy_photo_missing,comments:byRating.get(row.id)||[],itemName:row.item_name,brand:row.brand,variant:row.variant}));
 }
 export async function getRatingRecord(db: Db, ratingId: string): Promise<Rating> {
   const result = await db.query(`${ratingSelect} WHERE r.id=$1 AND r.deleted_at IS NULL`,[ratingId]);

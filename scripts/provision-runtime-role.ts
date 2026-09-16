@@ -26,6 +26,7 @@ export async function provisionRuntimeRole(connectionString:string,password:stri
     await db.query(`GRANT USAGE ON SCHEMA everrate TO ${runtimeRole}`);
     for(const table of mutable)await db.query(`GRANT SELECT,INSERT,UPDATE ON everrate.${table} TO ${runtimeRole}`);
     await db.query(`GRANT SELECT ON everrate.legacy_aliases TO ${runtimeRole}`);
+    await db.query(`GRANT SELECT,INSERT,DELETE ON everrate.rating_photos TO ${runtimeRole}`);
     await db.query(`GRANT DELETE ON everrate.memberships TO ${runtimeRole}`);
     await db.query(`GRANT INSERT ON everrate.rating_revisions,everrate.audit_events TO ${runtimeRole}`);
     await db.query('COMMIT');

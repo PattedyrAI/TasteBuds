@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {ReviewPhotos,reviewPhotoIds} from './review-photos';
 import {RatingStatus} from './rating-status';
 import {BrandLabel} from './brand-label';
 import {CategoryPicker} from './category-picker';
@@ -45,7 +46,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
       {item.ratings.map(r=><article className="tasting" key={r.id}>
         <header><Avatar name={r.author.displayName} url={r.author.avatarUrl}/><div><strong>{person?<button className="text-button" onClick={()=>person(r.author.id)}>{r.author.displayName}</button>:r.author.displayName}</strong><small>{date(r.tastedAt)}</small></div><Score value={r.score}/></header><RatingStatus rating={r}/>
         {r.note&&<p className="note">{r.note}</p>}
-        {r.photoId?<Photo id={r.photoId} name={`Photo from ${r.author.displayName}'s tasting`} className="tasting-photo"/>:r.legacyPhotoMissing&&<small className="muted">Historical rating · original photo unavailable</small>}
+        {r.photoId?<ReviewPhotos ids={reviewPhotoIds(r)} name={`Photos from ${r.author.displayName}'s tasting`}/>:r.legacyPhotoMissing&&<small className="muted">Historical rating · original photo unavailable</small>}
         <div className="tasting-actions">{r.author.id===user.id&&<button className="text-button" onClick={()=>rereview(r,item)}><Repeat2 size={13}/> Rereview</button>}{r.author.id===user.id&&<button className="text-button" onClick={()=>edit(r,item)}><Pencil size={13}/> Edit</button>}{(r.author.id===user.id||owner)&&<button className="text-button danger" onClick={()=>setDeleting(r.id)}><Trash2 size={13}/> Delete</button>}</div>
         {deleting===r.id&&<div className="inline-confirm"><span>Remove this rating from the group?</span><button disabled={busy} onClick={()=>void run(()=>request(`/api/ratings/${r.id}`,'DELETE'))}>Remove</button><button onClick={()=>setDeleting(null)}>Keep it</button></div>}
         {r.comments.map(c=><div className="comment" key={c.id}><strong>{c.author.displayName}</strong>

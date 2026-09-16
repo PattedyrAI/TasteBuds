@@ -1,3 +1,4 @@
+import {ratingPhotoColumns,requireRatingPhotos,replaceExtraPhotos} from './rating-photos';
 import { createHash } from 'node:crypto';
 import type { Comment, CreateRatingInput, Rating, UpdateRatingInput, UpdateCommentInput } from '../../lib/contracts';
 import { createRatingSchema, updateRatingSchema, commentSchema } from '../../domain/validation';
@@ -7,6 +8,7 @@ import { audit, lookupLabel, parse, requireMembership, ServiceError, userColumns
 import { comment, getRatingRecord } from './items';
 export async function createRating(userId: string, input: CreateRatingInput): Promise<Rating> {
   validId(userId); const value = parse(createRatingSchema,input);
+  const photoIds=value.photoIds??[value.photoId];
   const requestHash = createHash('sha256').update(JSON.stringify(value)).digest('hex');
   return transaction(async db=> {
     await requireMembership(db,userId,value.groupId);
@@ -18,18 +20,18 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
         return getRatingRecord(db,prior.rows[0].id);
       }
     }
-    let sourcePhoto: string | null | undefined;
+    let sourcePhotos:string[]=[];
     if (value.rereviewOf) {
       // Lock the original while validating it so deletion/editing cannot change
       // the photo permission between this check and the new history row.
-      const source = await db.query(`SELECT photo_id FROM everrate.ratings
+      const source = await db.query(`SELECT photo_id FROM everrate.ratings r
         WHERE id=$1 AND user_id=$2 AND item_id=$3 AND group_id=$4
         AND deleted_at IS NULL FOR SHARE`,
       [value.rereviewOf,userId,value.itemId,value.groupId]);
       if (!source.rowCount) throw new ServiceError(404,'Original rating not found');
-      sourcePhoto = source.rows[0].photo_id;
+      sourcePhotos = (await db.query(`SELECT ${ratingPhotoColumns} FROM everrate.ratings r WHERE r.id=$1`,[value.rereviewOf])).rows[0].photo_ids;
     }
-    if ((!sourcePhoto || value.photoId !== sourcePhoto) && !(await db.query('SELECT id FROM everrate.photos WHERE id=$1 AND group_id=$2 AND owner_id=$3',[value.photoId,value.groupId,userId])).rowCount) throw new ServiceError(404,'Photo not found');
+    await requireRatingPhotos(db,userId,value.groupId,photoIds,sourcePhotos);
     let itemId = value.itemId;
     if (itemId) {
       if (!(await db.query('SELECT id FROM everrate.items WHERE id=$1 AND group_id=$2',[itemId,value.groupId])).rowCount) throw new ServiceError(404,'Item not found');
@@ -41,6 +43,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
       itemId = result.rows[0].id;
     }
     const result = await db.query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,note,tasted_at,photo_id,idempotency_key,request_hash) VALUES($1,$2,$3,$4,$5,coalesce($6::timestamptz,now()),$7,$8,$9) RETURNING id',[value.groupId,itemId,userId,value.score,value.note || null,value.tastedAt || null,value.photoId || null,value.idempotencyKey || null,requestHash]);
+    await replaceExtraPhotos(db,value.groupId,result.rows[0].id,photoIds);
     const rating = await getRatingRecord(db,result.rows[0].id);
     await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,payload)
       SELECT r.group_id,r.id,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
@@ -54,17 +57,20 @@ async function mutableRating(db: Db,userId:string,ratingId:string) {
   if (!found.rowCount) throw new ServiceError(404,'Rating not found');
   const row = found.rows[0]; const membership = await requireMembership(db,userId,row.group_id);
   if (row.user_id !== userId && membership.role !== 'owner') throw new ServiceError(403,'You can only change your own rating');
+  row.photo_ids=(await db.query(`SELECT ${ratingPhotoColumns} FROM everrate.ratings r WHERE r.id=$1`,[ratingId])).rows[0].photo_ids;
   return row;
 }
 export async function updateRating(userId: string, ratingId: string, input: UpdateRatingInput): Promise<Rating> {
   const patch = parse(updateRatingSchema,input);
   return transaction(async db=> {
     const row = await mutableRating(db,userId,ratingId);
-    const photoId = patch.photoId ?? row.photo_id;
+    const photoIds:string[]=patch.photoIds??(patch.photoId?[patch.photoId,...row.photo_ids.slice(1).filter((id:string)=>id!==patch.photoId)]:row.photo_ids);
+    const photoId=photoIds[0];
     if (!photoId) throw new ServiceError(400,'Add a photo before correcting this historical rating');
-    if (patch.photoId && patch.photoId !== row.photo_id && !(await db.query('SELECT id FROM everrate.photos WHERE id=$1 AND group_id=$2 AND owner_id=$3',[patch.photoId,row.group_id,userId])).rowCount) throw new ServiceError(404,'Photo not found');
+    await requireRatingPhotos(db,userId,row.group_id,photoIds,row.photo_ids);
     await db.query("INSERT INTO everrate.rating_revisions(rating_id,actor_id,action,previous_value) VALUES($1,$2,'update',$3)",[ratingId,userId,JSON.stringify(row)]);
     await db.query('UPDATE everrate.ratings SET score=$1,note=$2,tasted_at=$3,photo_id=$4,legacy_photo_missing=false,updated_at=now() WHERE id=$5',[patch.score ?? row.score,patch.note === undefined ? row.note : patch.note,patch.tastedAt ?? row.tasted_at,photoId,ratingId]);
+    await replaceExtraPhotos(db,row.group_id,ratingId,photoIds);
     await audit(db,userId,row.group_id,'rating.update',ratingId);
     return getRatingRecord(db,ratingId);
   });
