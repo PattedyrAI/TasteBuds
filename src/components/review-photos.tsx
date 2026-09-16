@@ -1,7 +1,8 @@
 'use client';
 import {useState} from 'react';
 import {ChevronLeft,ChevronRight,Expand} from 'lucide-react';
-import {Modal,Photo} from './ui';
+import {Photo} from './ui';
+import {PhotoViewer} from './photo-viewer';
 export function reviewPhotoIds(review:{photoId?:string|null;photoIds?:string[]}){
   return review.photoIds?.length?review.photoIds:review.photoId?[review.photoId]:[];
 }
@@ -13,6 +14,6 @@ export function ReviewPhotos({ids,name,compact=false}:{ids:string[];name:string;
   return <div className={`review-gallery${compact?' compact':''}`} aria-label={`${name}: ${ids.length} photos`}>
     <button type="button" className="review-gallery-open" aria-label={`Open photo ${index+1} of ${ids.length}`} onClick={()=>setExpanded(true)}><Photo id={ids[index]} name={`${name}, photo ${index+1}`}/><span className="review-gallery-count"><Expand size={14}/>{ids.length>1?`${index+1} / ${ids.length}`:'View photo'}</span></button>
     {!compact&&ids.length>1&&controls}
-    {expanded&&<Modal title={name} close={()=>setExpanded(false)}><div className="review-gallery-expanded"><Photo id={ids[index]} name={`${name}, photo ${index+1}`}/>{ids.length>1&&controls}</div></Modal>}
+    {expanded&&<PhotoViewer ids={ids} initialIndex={index} name={name} close={()=>setExpanded(false)}/>}
   </div>;
 }
