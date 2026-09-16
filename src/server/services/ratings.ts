@@ -4,12 +4,37 @@ import type { Comment, CreateRatingInput, Rating, UpdateRatingInput, UpdateComme
 import { createRatingSchema, updateRatingSchema, commentSchema } from '../../domain/validation';
 import { identityKey } from '../../domain/ratings';
 import { transaction, type Db } from '../db';
-import { audit, lookupLabel, parse, requireMembership, ServiceError, userColumns, validId } from './common';
+import { audit, lookupLabel, lookupCategory, parse, requireMembership, ServiceError, userColumns, validId } from './common';
 import { comment, getRatingRecord } from './items';
+import {ratingTemplate,verifyRatingLocation,persistRatingLocation,parseTemplateValues} from './rating-location';
 export async function createRating(userId: string, input: CreateRatingInput): Promise<Rating> {
   validId(userId); const value = parse(createRatingSchema,input);
   const photoIds=value.photoIds??[value.photoId];
   const requestHash = createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const preparation=await transaction(async db=>{
+    await requireMembership(db,userId,value.groupId);
+    if(value.idempotencyKey){
+      const prior=await db.query('SELECT id,request_hash,deleted_at FROM everrate.ratings WHERE user_id=$1 AND idempotency_key=$2',[userId,value.idempotencyKey]);
+      if(prior.rowCount){
+        if(prior.rows[0].request_hash!==requestHash||prior.rows[0].deleted_at)throw new ServiceError(409,'This request key has already been used');
+        return {prior:await getRatingRecord(db,prior.rows[0].id)};
+      }
+    }
+    const prepared=await ratingTemplate(db,userId,value);
+    if(prepared.placeId&&!prepared.existingPlaceId){
+      let reusable:string[]=[];
+      if(value.rereviewOf){
+        const source=await db.query(`SELECT ${ratingPhotoColumns} FROM everrate.ratings r WHERE id=$1 AND user_id=$2 AND group_id=$3 AND item_id=$4 AND deleted_at IS NULL`,[value.rereviewOf,userId,value.groupId,value.itemId]);
+        if(!source.rowCount)throw new ServiceError(404,'Original rating not found');
+        reusable=source.rows[0].photo_ids;
+      }
+      await requireRatingPhotos(db,userId,value.groupId,photoIds,reusable);
+    }
+    return {prepared};
+  });
+  if(preparation.prior)return preparation.prior;
+  const prepared=preparation.prepared!;
+  if(prepared.placeId&&!prepared.existingPlaceId)await verifyRatingLocation(prepared.placeId);
   return transaction(async db=> {
     await requireMembership(db,userId,value.groupId);
     if (value.idempotencyKey) {
@@ -32,17 +57,21 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
       sourcePhotos = (await db.query(`SELECT ${ratingPhotoColumns} FROM everrate.ratings r WHERE r.id=$1`,[value.rereviewOf])).rows[0].photo_ids;
     }
     await requireRatingPhotos(db,userId,value.groupId,photoIds,sourcePhotos);
+    const template=await ratingTemplate(db,userId,value);
+    if(template.placeId!==prepared.placeId)throw new ServiceError(409,'Kategorimalen ble endret. Åpne vurderingen på nytt.');
     let itemId = value.itemId;
     if (itemId) {
       if (!(await db.query('SELECT id FROM everrate.items WHERE id=$1 AND group_id=$2',[itemId,value.groupId])).rowCount) throw new ServiceError(404,'Item not found');
     } else {
       const brandId = await lookupLabel(db,'brands',value.groupId,value.brand);
-      const typeId = await lookupLabel(db,'item_types',value.groupId,value.type);
+      const typeId = await lookupCategory(db,userId,value.groupId,value.type);
       // Never silently link a candidate: only an explicit itemId selects an existing item.
       const result = await db.query('INSERT INTO everrate.items(group_id,name,brand_id,variant,type_id,broad_category,identity_key,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',[value.groupId,value.name,brandId,value.variant,typeId,value.broadCategory,identityKey(value.name!,value.brand,value.variant),userId]);
       itemId = result.rows[0].id;
     }
+    await persistRatingLocation(db,userId,value.groupId,itemId!,template.placeId);
     const result = await db.query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,note,tasted_at,photo_id,idempotency_key,request_hash) VALUES($1,$2,$3,$4,$5,coalesce($6::timestamptz,now()),$7,$8,$9) RETURNING id',[value.groupId,itemId,userId,value.score,value.note || null,value.tastedAt || null,value.photoId || null,value.idempotencyKey || null,requestHash]);
+    await db.query('UPDATE everrate.ratings SET custom_fields=$1,category_fields=$2 WHERE id=$3',[JSON.stringify(template.values),JSON.stringify(template.fields),result.rows[0].id]);
     await replaceExtraPhotos(db,value.groupId,result.rows[0].id,photoIds);
     const rating = await getRatingRecord(db,result.rows[0].id);
     await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,payload)
@@ -53,7 +82,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
 }
 async function mutableRating(db: Db,userId:string,ratingId:string) {
   validId(ratingId);
-  const found = await db.query('SELECT * FROM everrate.ratings WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[ratingId]);
+  const found = await db.query(`SELECT r.* FROM everrate.ratings r WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`,[ratingId]);
   if (!found.rowCount) throw new ServiceError(404,'Rating not found');
   const row = found.rows[0]; const membership = await requireMembership(db,userId,row.group_id);
   if (row.user_id !== userId && membership.role !== 'owner') throw new ServiceError(403,'You can only change your own rating');
@@ -64,12 +93,15 @@ export async function updateRating(userId: string, ratingId: string, input: Upda
   const patch = parse(updateRatingSchema,input);
   return transaction(async db=> {
     const row = await mutableRating(db,userId,ratingId);
+    const customFields=patch.customFields===undefined?row.custom_fields:parseTemplateValues(row.category_fields,patch.customFields);
+    for(const field of row.category_fields)if(field.type==='location'&&customFields[field.id]!==row.custom_fields[field.id])throw new ServiceError(400,'Stedet kan ikke flyttes ved å redigere en tidligere vurdering.');
     const photoIds:string[]=patch.photoIds??(patch.photoId?[patch.photoId,...row.photo_ids.slice(1).filter((id:string)=>id!==patch.photoId)]:row.photo_ids);
     const photoId=photoIds[0];
     if (!photoId) throw new ServiceError(400,'Add a photo before correcting this historical rating');
     await requireRatingPhotos(db,userId,row.group_id,photoIds,row.photo_ids);
     await db.query("INSERT INTO everrate.rating_revisions(rating_id,actor_id,action,previous_value) VALUES($1,$2,'update',$3)",[ratingId,userId,JSON.stringify(row)]);
     await db.query('UPDATE everrate.ratings SET score=$1,note=$2,tasted_at=$3,photo_id=$4,legacy_photo_missing=false,updated_at=now() WHERE id=$5',[patch.score ?? row.score,patch.note === undefined ? row.note : patch.note,patch.tastedAt ?? row.tasted_at,photoId,ratingId]);
+    await db.query('UPDATE everrate.ratings SET custom_fields=$1 WHERE id=$2',[JSON.stringify(customFields),ratingId]);
     await replaceExtraPhotos(db,row.group_id,ratingId,photoIds);
     await audit(db,userId,row.group_id,'rating.update',ratingId);
     return getRatingRecord(db,ratingId);

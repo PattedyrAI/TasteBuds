@@ -29,3 +29,12 @@ export async function lookupLabel(db: Db, table: 'brands'|'item_types', groupId:
   const result = await db.query(`INSERT INTO everrate.${table}(group_id,name) VALUES($1,$2) ON CONFLICT(group_id,lower(name)) DO UPDATE SET name=everrate.${table}.name RETURNING id`,[groupId,name]);
   return result.rows[0].id;
 }
+
+export async function lookupCategory(db:Db,userId:string,groupId:string,name?:string|null):Promise<string|null>{
+  if(!name)return null;
+  const canonical=canonicalItemType(name);
+  const found=await db.query('SELECT id FROM everrate.item_types WHERE group_id=$1 AND lower(name)=lower($2)',[groupId,canonical]);
+  if(found.rowCount)return found.rows[0].id;
+  await requireMembership(db,userId,groupId,true);
+  return lookupLabel(db,'item_types',groupId,canonical);
+}

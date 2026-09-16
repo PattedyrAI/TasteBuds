@@ -5,8 +5,11 @@ import type { Comment, FeedEntry, Item, ItemDetail, ItemFilters, Rating, UpdateI
 import { transaction, type Db } from '../db';
 import { updateItemSchema } from '../../domain/validation';
 import { identityKey } from '../../domain/ratings';
-import { audit, iso, lookupLabel, parse, requireMembership, ServiceError, user, userColumns, validId } from './common';
+import { audit, iso, lookupLabel, lookupCategory, parse, requireMembership, ServiceError, user, userColumns, validId } from './common';
 export const itemSelect = `SELECT i.*,b.name AS brand,t.name AS type,
+ (SELECT r.custom_fields FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC LIMIT 1) custom_fields,
+ (SELECT r.category_fields FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC LIMIT 1) category_fields,
+ (SELECT rp.place_id FROM everrate.restaurant_places rp WHERE rp.group_id=i.group_id AND rp.item_id=i.id) place_id,
  coalesce((SELECT photo_id FROM everrate.ratings p WHERE p.item_id=i.id AND p.deleted_at IS NULL AND p.photo_id IS NOT NULL ORDER BY p.tasted_at DESC,p.created_at DESC,p.id DESC LIMIT 1),i.legacy_photo_id) photo_id,
  (SELECT avg(latest.score) FROM (SELECT DISTINCT ON(r.user_id) r.score FROM everrate.ratings r JOIN everrate.memberships m ON m.user_id=r.user_id AND m.group_id=r.group_id WHERE r.item_id=i.id AND r.deleted_at IS NULL ORDER BY r.user_id,r.tasted_at DESC,r.created_at DESC,r.id DESC) latest) average,
  (SELECT count(DISTINCT r.user_id) FROM everrate.ratings r JOIN everrate.memberships m ON m.user_id=r.user_id AND m.group_id=r.group_id WHERE r.item_id=i.id AND r.deleted_at IS NULL) rater_count,
@@ -19,7 +22,7 @@ export const itemSelect = `SELECT i.*,b.name AS brand,t.name AS type,
  (SELECT count(*) FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) tasting_count,
  (SELECT max(tasted_at) FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) last_rated_at
  FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id LEFT JOIN everrate.item_types t ON t.id=i.type_id`;
-function item(row: Record<string, any>): Item { return { reviewers:row.reviewers??[],id:row.id,groupId:row.group_id,createdBy:row.created_by,name:row.name,brand:row.brand || null,variant:row.variant || null,type:row.type || null,broadCategory:row.broad_category || null,photoId:row.photo_id || null,average:row.average === null ? null : Number(row.average),raterCount:Number(row.rater_count),tastingCount:Number(row.tasting_count),lastRatedAt:row.last_rated_at ? iso(row.last_rated_at) : null }; }
+export function item(row: Record<string, any>): Item { return { customFields:row.custom_fields??{},categoryFields:row.category_fields??[],placeId:row.place_id??null,reviewers:row.reviewers??[],id:row.id,groupId:row.group_id,createdBy:row.created_by,name:row.name,brand:row.brand || null,variant:row.variant || null,type:row.type || null,broadCategory:row.broad_category || null,photoId:row.photo_id || null,average:row.average === null ? null : Number(row.average),raterCount:Number(row.rater_count),tastingCount:Number(row.tasting_count),lastRatedAt:row.last_rated_at ? iso(row.last_rated_at) : null }; }
 /** Enrich in one batch using only the authenticated canonical user. */
 async function personalItems(db: Db, rows: Record<string, any>[], userId: string): Promise<Item[]> {
   if (!rows.length) return [];
@@ -42,7 +45,7 @@ export async function ratingRows(db: Db, rows: Record<string, any>[]): Promise<F
     if (!list) { list = []; byRating.set(row.rating_id,list); }
     list.push(comment(row));
   }
-  return rows.map(row=>({isRereview:row.is_rereview,countsTowardAverage:row.counts_toward_average,id:row.id,groupId:row.group_id,itemId:row.item_id,author:user(row),score:Number(row.score),note:row.note,tastedAt:iso(row.tasted_at),createdAt:iso(row.created_at),updatedAt:iso(row.updated_at),photoId:row.photo_id,photoIds:row.photo_ids,legacyPhotoMissing:row.legacy_photo_missing,comments:byRating.get(row.id)||[],itemName:row.item_name,brand:row.brand,variant:row.variant}));
+  return rows.map(row=>({customFields:row.custom_fields??{},categoryFields:row.category_fields??[],isRereview:row.is_rereview,countsTowardAverage:row.counts_toward_average,id:row.id,groupId:row.group_id,itemId:row.item_id,author:user(row),score:Number(row.score),note:row.note,tastedAt:iso(row.tasted_at),createdAt:iso(row.created_at),updatedAt:iso(row.updated_at),photoId:row.photo_id,photoIds:row.photo_ids,legacyPhotoMissing:row.legacy_photo_missing,comments:byRating.get(row.id)||[],itemName:row.item_name,brand:row.brand,variant:row.variant}));
 }
 export async function getRatingRecord(db: Db, ratingId: string): Promise<Rating> {
   const result = await db.query(`${ratingSelect} WHERE r.id=$1 AND r.deleted_at IS NULL`,[ratingId]);
@@ -96,7 +99,7 @@ export async function updateItem(userId: string, itemId: string, input: UpdateIt
       broadCategory:patch.broadCategory === undefined ? row.broad_category : patch.broadCategory,
     };
     const brandId = patch.brand === undefined ? row.brand_id : await lookupLabel(db,'brands',row.group_id,updated.brand);
-    const typeId = patch.type === undefined ? row.type_id : await lookupLabel(db,'item_types',row.group_id,updated.type);
+    const typeId = patch.type === undefined ? row.type_id : await lookupCategory(db,userId,row.group_id,updated.type);
     await db.query('UPDATE everrate.items SET name=$1,brand_id=$2,variant=$3,type_id=$4,broad_category=$5,identity_key=$6 WHERE id=$7',[updated.name,brandId,updated.variant,typeId,updated.broadCategory,identityKey(updated.name,updated.brand,updated.variant),itemId]);
     await audit(db,userId,row.group_id,'item.update',itemId,{previous,updated});
     const result = await db.query(`${itemSelect} WHERE i.id=$1`,[itemId]);

@@ -6,21 +6,22 @@ import { getPool, transaction, type Db } from '../db';
 import { audit, iso, parse, requireMembership, ServiceError, user, validId } from './common';
 const invite = () => randomBytes(24).toString('base64url');
 export {ensureUser} from './users';
-function group(row: Record<string, any>): Group { return { id: row.id,name: row.name,ownerId: row.owner_id,role: row.role,memberCount: Number(row.member_count),createdAt: iso(row.created_at) }; }
+function group(row: Record<string, any>): Group { return { mapsEnabled:row.maps_enabled===true,id: row.id,name: row.name,ownerId: row.owner_id,role: row.role,memberCount: Number(row.member_count),createdAt: iso(row.created_at) }; }
 export async function bootstrap(userId: string): Promise<Bootstrap> {
   validId(userId);
   const account = await getPool().query('SELECT * FROM everrate.users WHERE id=$1', [userId]);
   if (!account.rowCount) throw new ServiceError(401,'Sign in to continue');
-  const groups = await getPool().query(`SELECT g.*,m.role,(SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) AS member_count FROM everrate.groups g JOIN everrate.memberships m ON m.group_id=g.id WHERE m.user_id=$1 ORDER BY g.created_at`, [userId]);
+  const groups = await getPool().query(`SELECT g.*,EXISTS(SELECT 1 FROM everrate.item_types t WHERE t.group_id=g.id AND t.fields @> '[{"type":"location"}]'::jsonb) maps_enabled,m.role,(SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) AS member_count FROM everrate.groups g JOIN everrate.memberships m ON m.group_id=g.id WHERE m.user_id=$1 ORDER BY g.created_at`, [userId]);
   return { user: user(account.rows[0]), groups: groups.rows.map(group) };
 }
 async function detail(db: Db, userId: string, groupId: string): Promise<GroupDetail> {
   const membership = await requireMembership(db,userId,groupId);
-  const result = await db.query(`SELECT g.*, (SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) member_count, EXISTS(SELECT 1 FROM everrate.discord_connections WHERE group_id=g.id AND enabled) discord_connected FROM everrate.groups g WHERE id=$1`,[groupId]);
+  const result = await db.query(`SELECT g.*,EXISTS(SELECT 1 FROM everrate.item_types t WHERE t.group_id=g.id AND t.fields @> '[{"type":"location"}]'::jsonb) maps_enabled, (SELECT count(*) FROM everrate.memberships members WHERE members.group_id=g.id AND EXISTS(SELECT 1 FROM everrate.ratings r WHERE r.group_id=g.id AND r.user_id=members.user_id AND r.deleted_at IS NULL)) member_count, EXISTS(SELECT 1 FROM everrate.discord_connections WHERE group_id=g.id AND enabled) discord_connected FROM everrate.groups g WHERE id=$1`,[groupId]);
   const members = await db.query('SELECT u.*,m.role,m.joined_at FROM everrate.memberships m JOIN everrate.users u ON u.id=m.user_id WHERE m.group_id=$1 ORDER BY m.joined_at,u.id',[groupId]);
   const stats = await db.query(`SELECT count(DISTINCT r.item_id) item_count,count(*) tasting_count,count(DISTINCT r.user_id) FILTER (WHERE EXISTS (SELECT 1 FROM everrate.memberships m WHERE m.group_id=r.group_id AND m.user_id=r.user_id)) active_members FROM everrate.ratings r WHERE r.group_id=$1 AND r.deleted_at IS NULL`,[groupId]);
+  const categories=await db.query('SELECT id,name,fields FROM everrate.item_types WHERE group_id=$1 ORDER BY lower(name)',[groupId]);
   const row = result.rows[0]; const s = stats.rows[0];
-  return { ...group({...row,role:membership.role}),inviteCode: membership.role === 'owner' ? row.invite_code : null,discordConnected: row.discord_connected,members: members.rows.map(row=>({...user(row),role:row.role,joinedAt:iso(row.joined_at)})),stats:{ itemCount:Number(s.item_count),tastingCount:Number(s.tasting_count),activeMembers:Number(s.active_members) } };
+  return { categories:categories.rows.map(c=>({id:c.id,name:c.name,fields:c.fields})),...group({...row,role:membership.role}),inviteCode: membership.role === 'owner' ? row.invite_code : null,discordConnected: row.discord_connected,members: members.rows.map(row=>({...user(row),role:row.role,joinedAt:iso(row.joined_at)})),stats:{ itemCount:Number(s.item_count),tastingCount:Number(s.tasting_count),activeMembers:Number(s.active_members) } };
 }
 export async function getGroup(userId: string, groupId: string): Promise<GroupDetail> { return transaction(db=>detail(db,userId,groupId)); }
 export async function createGroup(userId: string, input: { name: string }): Promise<GroupDetail> {

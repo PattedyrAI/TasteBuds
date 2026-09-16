@@ -37,6 +37,8 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
       for(const table of mutable)await tx.query(`GRANT SELECT,INSERT,UPDATE ON everrate.${table} TO ${runtimeRole}`);
       await tx.query(`GRANT SELECT ON everrate.legacy_aliases TO ${runtimeRole}`);
       await tx.query(`GRANT SELECT,INSERT,DELETE ON everrate.rating_photos TO ${runtimeRole}`);
+    await tx.query(`GRANT SELECT,INSERT,DELETE ON everrate.restaurant_places TO ${runtimeRole}`);
+    await tx.query(`GRANT SELECT,INSERT,UPDATE ON everrate.google_places_usage TO ${runtimeRole}`);
       await tx.query(`GRANT DELETE ON everrate.memberships TO ${runtimeRole}`);
       await tx.query(`GRANT INSERT ON everrate.rating_revisions,everrate.audit_events TO ${runtimeRole}`);
       await tx.query('COMMIT');
