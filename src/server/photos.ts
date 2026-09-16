@@ -20,12 +20,17 @@ export async function uploadPhoto(userId:string,groupId:string,input:Buffer){
   if(!member.rowCount)throw new HttpError('Group not found.',404);
   let data:Buffer,width:number,height:number;
   try {
-    const image=sharp(input,{limitInputPixels:40_000_000,failOn:'error'});
+    // Full-resolution 48 MP phone photos exceed 40 MP even when the JPG is under 10 MB.
+    const image=sharp(input,{limitInputPixels:64_000_000,failOn:'error'});
     const metadata=await image.metadata();
     if(!metadata.format||!['jpeg','png','webp','heif'].includes(metadata.format))throw new Error('Unsupported photo format');
     const output=await image.rotate().resize(1600,1600,{fit:'inside',withoutEnlargement:true}).jpeg({quality:82}).toBuffer({resolveWithObject:true});
     data=output.data;width=output.info.width;height=output.info.height;
-  }catch{throw new HttpError('This photo could not be read. Try a JPEG or PNG.',400);}
+  }catch(error){
+    const pixelLimit=error instanceof Error&&error.message.includes('Input image exceeds pixel limit');
+    console.warn('Photo decoding rejected',{reason:pixelLimit?'pixel-limit':'invalid-image',bytes:input.length});
+    throw new HttpError(pixelLimit?'This photo is over 64 megapixels. Export a smaller copy and try again.':'This photo could not be read. Try exporting it as a new JPEG or PNG.',400);
+  }
   const sha=createHash('sha256').update(data).digest('hex');
   return transaction(async tx=>{
     await requireMembership(tx,userId,groupId);
