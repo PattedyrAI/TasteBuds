@@ -1,3 +1,4 @@
+import {canManageGroup} from '../../domain/group-roles';
 import {ratingPhotoColumns} from './rating-photos';
 import { z } from 'zod';
 import {ratingStatusColumns} from './rating-status';
@@ -90,7 +91,7 @@ export async function updateItem(userId: string, itemId: string, input: UpdateIt
     const membership = await requireMembership(db,userId,locked.rows[0].group_id);
     const found = await db.query('SELECT i.*,b.name brand,t.name type FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id LEFT JOIN everrate.item_types t ON t.id=i.type_id WHERE i.id=$1',[itemId]);
     const row = found.rows[0];
-    if (row.created_by !== userId && membership.role !== 'owner') throw new ServiceError(403,'Only the item creator or group owner can change this item');
+    if (row.created_by !== userId && !canManageGroup(membership.role)) throw new ServiceError(403,'Only the item creator or group owner can change this item');
     const previous = {name:row.name,brand:row.brand,variant:row.variant,type:row.type,broadCategory:row.broad_category,identityKey:row.identity_key};
     const updated = {
       name:patch.name ?? row.name, brand:patch.brand === undefined ? row.brand : patch.brand,

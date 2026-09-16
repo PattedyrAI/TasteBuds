@@ -1,9 +1,9 @@
 /** Public browser/server contracts. Never add provider credentials to these types. */
 export interface User { id: string; discordId: string | null; nickname: string | null; aiEnabled: boolean; displayName: string; avatarUrl: string | null }
 /** memberCount counts current members with at least one nondeleted rating; members remains the full management roster. */
-export interface Group { mapsEnabled?: boolean; id: string; name: string; ownerId: string; role: 'owner' | 'member'; memberCount: number; createdAt: string }
-export interface Member extends User { role: 'owner' | 'member'; joinedAt: string }
-export interface Person { id: string; displayName: string; avatarUrl: string | null; role: 'owner' | 'member'; joinedAt: string; ratingCount: number; itemCount: number; lastRatedAt: string | null }
+export interface Group { mapsEnabled?: boolean; id: string; name: string; ownerId: string; role: 'owner' | 'admin' | 'member'; memberCount: number; createdAt: string }
+export interface Member extends User { role: 'owner' | 'admin' | 'member'; joinedAt: string }
+export interface Person { id: string; displayName: string; avatarUrl: string | null; role: 'owner' | 'admin' | 'member'; joinedAt: string; ratingCount: number; itemCount: number; lastRatedAt: string | null }
 export interface PersonRating { photoIds?: string[]; isRereview?: boolean; countsTowardAverage?: boolean; id: string; itemId: string; itemName: string; brand: string | null; variant: string | null; score: number; note: string | null; photoId: string | null; tastedAt: string; legacyPhotoMissing: boolean }
 export interface PersonRatingsPage { person: Person; ratings: PersonRating[]; nextCursor: string | null }
 export interface CategoryField { id: string; label: string; type: 'text'|'number'|'price'|'select'|'boolean'|'location'; required: boolean; filterable: boolean; options?: string[] }

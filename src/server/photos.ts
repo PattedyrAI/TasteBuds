@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import {createHash} from 'node:crypto';
-import {query,transaction} from './db';
+import {transaction} from './db';
 import {HttpError} from './auth';
 import {z} from 'zod';
 import {requireMembership} from './service';
@@ -16,8 +16,7 @@ export async function readImageBody(request:Request) {
 }
 export async function uploadPhoto(userId:string,groupId:string,input:Buffer){
   z.uuid().parse(groupId);
-  const member=await query('SELECT 1 FROM everrate.memberships WHERE group_id=$1 AND user_id=$2',[groupId,userId]);
-  if(!member.rowCount)throw new HttpError('Group not found.',404);
+  await transaction(tx=>requireMembership(tx,userId,groupId));
   let data:Buffer,width:number,height:number;
   try {
     // Full-resolution 48 MP phone photos exceed 40 MP even when the JPG is under 10 MB.
@@ -43,7 +42,12 @@ export async function uploadPhoto(userId:string,groupId:string,input:Buffer){
 }
 export async function getPhoto(userId:string,photoId:string){
   z.uuid().parse(photoId);
-  const r=await query('SELECT p.* FROM everrate.photos p JOIN everrate.memberships m ON m.group_id=p.group_id AND m.user_id=$2 WHERE p.id=$1',[photoId,userId]);
-  if(!r.rowCount)throw new HttpError('Photo not found.',404);
-  return r.rows[0] as {id:string;group_id:string;owner_id:string;data:Buffer;mime_type:string;sha256:string};
+  return transaction(async tx=>{
+    const found=await tx.query('SELECT group_id FROM everrate.photos WHERE id=$1',[photoId]);
+    if(!found.rowCount)throw new HttpError('Photo not found.',404);
+    await requireMembership(tx,userId,found.rows[0].group_id);
+    const r=await tx.query('SELECT * FROM everrate.photos WHERE id=$1',[photoId]);
+    if(!r.rowCount)throw new HttpError('Photo not found.',404);
+    return r.rows[0] as {id:string;group_id:string;owner_id:string;data:Buffer;mime_type:string;sha256:string};
+  });
 }

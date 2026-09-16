@@ -1,3 +1,5 @@
+import {isPlatformAdmin} from '../platform-admin';
+import {canManageGroup} from '../../domain/group-roles';
 import {ratingPhotoColumns,requireRatingPhotos,replaceExtraPhotos} from './rating-photos';
 import { createHash } from 'node:crypto';
 import type { Comment, CreateRatingInput, Rating, UpdateRatingInput, UpdateCommentInput } from '../../lib/contracts';
@@ -37,6 +39,8 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
   if(prepared.placeId&&!prepared.existingPlaceId)await verifyRatingLocation(prepared.placeId);
   return transaction(async db=> {
     await requireMembership(db,userId,value.groupId);
+    // Only joining by posting changes membership; reading as admin stays read-only.
+    if(isPlatformAdmin(userId))await db.query("INSERT INTO everrate.memberships(group_id,user_id,role) VALUES($1,$2,'member') ON CONFLICT DO NOTHING",[value.groupId,userId]);
     if (value.idempotencyKey) {
       await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[userId+':'+value.idempotencyKey]);
       const prior = await db.query('SELECT id,request_hash,deleted_at FROM everrate.ratings WHERE user_id=$1 AND idempotency_key=$2',[userId,value.idempotencyKey]);
@@ -85,7 +89,7 @@ async function mutableRating(db: Db,userId:string,ratingId:string) {
   const found = await db.query(`SELECT r.* FROM everrate.ratings r WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`,[ratingId]);
   if (!found.rowCount) throw new ServiceError(404,'Rating not found');
   const row = found.rows[0]; const membership = await requireMembership(db,userId,row.group_id);
-  if (row.user_id !== userId && membership.role !== 'owner') throw new ServiceError(403,'You can only change your own rating');
+  if (row.user_id !== userId && !canManageGroup(membership.role)) throw new ServiceError(403,'You can only change your own rating');
   row.photo_ids=(await db.query(`SELECT ${ratingPhotoColumns} FROM everrate.ratings r WHERE r.id=$1`,[ratingId])).rows[0].photo_ids;
   return row;
 }
@@ -131,7 +135,7 @@ export async function deleteComment(userId:string,commentId:string): Promise<{de
     const found = await db.query('SELECT * FROM everrate.comments WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[commentId]);
     if (!found.rowCount) throw new ServiceError(404,'Comment not found');
     const row = found.rows[0]; const membership = await requireMembership(db,userId,row.group_id);
-    if (row.user_id !== userId && membership.role !== 'owner') throw new ServiceError(403,'You can only delete your own comment');
+    if (row.user_id !== userId && !canManageGroup(membership.role)) throw new ServiceError(403,'You can only delete your own comment');
     await db.query('UPDATE everrate.comments SET deleted_at=now() WHERE id=$1',[commentId]);
     await audit(db,userId,row.group_id,'comment.delete',commentId,{previousBody:row.body}); return {deleted:true};
   });
@@ -142,7 +146,7 @@ export async function updateComment(userId: string, commentId: string, input: Up
     const found = await db.query('SELECT * FROM everrate.comments WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[commentId]);
     if (!found.rowCount) throw new ServiceError(404,'Comment not found');
     const row = found.rows[0]; const membership = await requireMembership(db,userId,row.group_id);
-    if (row.user_id !== userId && membership.role !== 'owner') throw new ServiceError(403,'You can only change your own comment');
+    if (row.user_id !== userId && !canManageGroup(membership.role)) throw new ServiceError(403,'You can only change your own comment');
     await audit(db,userId,row.group_id,'comment.update',commentId,{previousBody:row.body});
     await db.query('UPDATE everrate.comments SET body=$1 WHERE id=$2',[body,commentId]);
     const updated = await db.query(`SELECT c.*,${userColumns} FROM everrate.comments c JOIN everrate.users u ON u.id=c.user_id WHERE c.id=$1`,[commentId]);
