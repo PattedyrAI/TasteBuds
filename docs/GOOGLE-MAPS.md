@@ -68,15 +68,19 @@ Lokal sluttkontroll 16. september 2026: 209 enhetstester bestått (78 miljøavhe
 
 Etter brukerens eksplisitte godkjenning er Maps JavaScript API, Places UI Kit og Places API (New) aktivert i **Food-E**, prosjekt `gen-lang-client-0680943659`. Prosjektet ble identifisert ved samsvar mellom TasteBuds sin eksisterende Gemini-nøkkel og nøkkelen i Google AI Studio. Google Maps sine EØS-vilkår ble akseptert i konsollen som del av den godkjente aktiveringen.
 
-To separate nøkler er opprettet og lagt i lokal `.env.local` (Git-ignorert, filrettighet 0600):
+To separate nøkler er opprettet og lagt i lokal `.env.local` (Git-ignorert, filrettighet 0600), og deretter overført direkte til webtjenestens produksjonsvariabler i Railway:
 
 - **TasteBuds Maps – nettleser:** Maps JavaScript API og Places UI Kit; HTTP-referrers for `https://tastebuds-production-1b73.up.railway.app/*` samt localhost/127.0.0.1 på port 3000 og 3015.
 - **TasteBuds Places – server:** kun Places API (New). Ingen IP-begrensning er satt; en fast utgående drifts-IP er ikke konfigurert som del av dette arbeidet. Nøkkelen skal forbli i servermiljøet.
 
-Lokal servergrense er satt til 100 nye stedsoppslag per UTC-døgn. Denne grensen gjelder fortsatt ikke nettleserens kart- og UI Kit-forbruk. Egne Google Cloud-kvoter er ikke ferdig konfigurert.
+Servergrensen er satt til 100 nye stedsoppslag per UTC-døgn, både lokalt og i produksjon. Google Cloud har i tillegg verifiserte dagsgrenser på 100 for hver av Maps JavaScript Map loads, Places UI Kit Session Requests, Query Requests og Advanced Query Requests. Dette er separate kvoter, ikke en samlet grense på 100 handlinger, og garanterer ikke gratis bruk. Søkeøkter og kart kan bli utilgjengelige når en kvote nås. Places API (New) er begrenset av appens atomiske dagsgrense; en separat Cloud-dagsgrense er ikke satt for denne API-en.
 
 **Fakturering og ekte Google-test verifisert:** Den opprinnelige kontoen var stengt og ga `BillingNotEnabledMapError`. Etter at brukeren opprettet den aktive kontoen **My Billing Account Main**, ble Food-E koblet til denne kontoen. Andre prosjekters koblinger ble ikke endret. Ingen faktureringskonto eller betalingsmåte ble opprettet av agenten.
 
 En lokal nettlesertest med appens faktiske Google-laster og `fetchPlaceLocation` bekreftet deretter kartinnlasting, ekte UI Kit-søk etter Mamma Pizza i Oslo, serveroppslag via Places API (New) og synlig markør på riktig sted. Ingen ny faktureringsfeil kom etter kontobyttet. Testen lagret ingen vurdering og verifiserer Google-integrasjonen isolert; hele flyten med lagring av en ekte vurdering og åpning av kategoriens kart gjenstår i målmiljøet.
 
-Nøklene er foreløpig kun konfigurert lokalt. Ingen Maps-nøkler, migrering 007 eller kartkode er publisert til produksjon gjennom denne oppgaven. Før produksjonsaktivering gjenstår Cloud-kvoter, et eget JavaScript Map ID for drift og kontroll av hele vurderingsflyten i målmiljøet.
+Et eget JavaScript-vektorkart, **TasteBuds kategorikart**, er opprettet med Map ID `c230e00f2598a9901fe403af` og konfigurert i produksjon. Migrering 007 og kartkode ble publisert etter brukerens eksplisitte publiseringsbeskjed. Kildecommit `75b22783c9cd80bbd6aefe88aa9ba8fbe4ed7435` nådde Railway `SUCCESS` som `b63cc485-2e6c-4be2-923e-96e5b6603891`; alle ni offentlige produksjonskontroller besto mot den nøyaktige versjonsmarkøren 16. september 2026 klokken 14:14 UTC.
+
+Den siste lokale kontrollen før publisering omfattet 209 enhetstester (78 miljøavhengige hoppet over), alle 91 databaseintegrasjonstester, typesjekk og produksjonsbygg. People-testoppsettet ble tilpasset slik at gruppeadmin oppretter kategorien før et medlem bruker den. Migreringen kontrollerte innenfor samme transaksjon at eksisterende kategori- og vurderingsdata var uendret, og bekreftet separate runtime-rettigheter og sperrede nettleserroller. Migrering 008 og flerbildefunksjonen ble beholdt.
+
+Ingen testvurdering ble publisert i en virkelig gruppe under denne utrullingen. Den komplette lagringsflyten er verifisert mot lokal PostgreSQL og simulerte nettleserdata; ekte Google-søk, serveroppslag og kartmarkør er verifisert lokalt med de faktiske nøklene. Innlogget produksjon lastet etter utrullingen. En komplett vurdering med Google-sted er ennå ikke lagret og gjenåpnet i produksjon. GitHub-push ble avvist med 403 for aktiv konto Pattedyret; kildecommiten er lagret lokalt, og publiseringen skjedde direkte til Railway.

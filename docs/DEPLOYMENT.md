@@ -302,3 +302,16 @@ Migrering `008_review_photos.sql` ble gjennomført før apputrullingen. Den oppr
 Verifisering av den isolerte utgivelsen: 82 integrasjonstester på en ny PostgreSQL-instans med kun migreringene 001–006 og 008, 167 enhetstester, typesjekk og produksjonsbygg. Sikkerhetsgjennomgangen godkjente endelig commit. Lokal mobiltest ved 320/390 px bekreftet flervalg, to kolonner på smale skjermer, 44 px knapper, forsidebytte, fjerning, delvis feil, bildegrenser, gjenbruk og forstørret galleri. I produksjon viste en innlogget Safari-økt to vellykket opplastede JPG-bilder i samme skjema, med separate fjernknapper og forsidevalg. Skjemaet ble lukket uten å publisere noen vurdering; to ubundne opplastede bilder ble lagret. Lagring av selve flerbildevurderingen ble verifisert mot lokal PostgreSQL.
 
 GitHub-push er fortsatt blokkert av utilgjengelig PattedyrAI-innlogging. Kildecommiten finnes lokalt, og Railway ble oppdatert direkte gjennom den fungerende Railway-innloggingen. Funksjonsbeskrivelse og datakontrakt: `docs/REVIEW-PHOTOS.md`.
+
+
+## 2026-09-16: kategorimaler, filtrering og Google-kart
+
+Brukeren godkjente publisering av hele kartfunksjonen. Kildecommit `75b22783c9cd80bbd6aefe88aa9ba8fbe4ed7435` ble publisert som Railway `b63cc485-2e6c-4be2-923e-96e5b6603891` med terminal status `SUCCESS`. Alle ni offentlige produksjonskontroller besto mot samme versjonsmarkør klokken 14:14 UTC. Opplastingen inneholdt 98 tillatte kilde-/konfigurasjonsfiler, totalt 625 848 byte; private filer og miljøkonfigurasjon inngikk ikke.
+
+Migrering `007_restaurant_maps.sql` ble lagt til etter allerede publisert 008. Privat kvittering og sikkerhetskopi av skjema/berørte rader ligger i `.private/maps-migration-uejmds9u`. Migreringen tok avgrensede tabellåser og sammenlignet innholdet i eksisterende kategorier og vurderinger før commit. Alle tidligere felt var uendret. Runtime-rettigheter ble kontrollert enkeltvis, og nettleserrollene mangler tilgang til karttabellene. Midlertidig SSH-nøkkel ble tilbakekalt og lokale nøkkel-/passordfiler slettet. Ingen import eller historikkendring inngikk.
+
+Separate Google-nøkler, eget JavaScript-vektorkart og `GOOGLE_PLACES_DAILY_LIMIT=100` er satt i webtjenestens produksjonsvariabler. Google Cloud-kvoter for kartinnlastinger og hver av UI Kit sine tre daglige forespørselstyper er satt til 100. Nøklene er avgrenset til nødvendige API-er; nettlesernøkkelen har domeneavgrensning. Se [Google Maps-oppsettet](GOOGLE-MAPS.md) for detaljer og verifikasjonsgrenser.
+
+Verifisering før publisering: 209 enhetstester bestått, 78 miljøavhengige hoppet over; 91 databaseintegrasjonstester bestått uten hopp; typesjekk og produksjonsbygg bestått. Kategori-/kartkoden og migreringsskriptet fikk uavhengig godkjenning. Ekte Google-søk, serveroppslag og kartmarkør var verifisert lokalt; ingen virkelig gruppe fikk en syntetisk testvurdering under produksjonskontrollen. Innlogget app lastet etter utrullingen, men lagring og gjenåpning av en hel Google-tilknyttet vurdering er ikke verifisert i produksjon.
+
+GitHub-push ble avvist med 403 for aktiv konto Pattedyret. Kildecommiten finnes lokalt og er publisert direkte til Railway. Ved rollback kan forrige apprelease gjenopprettes uten å fjerne de additive databasefeltene; bevar nye vurderingsdata og ikke rull tilbake migreringen med sletting.
