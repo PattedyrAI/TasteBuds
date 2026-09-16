@@ -45,7 +45,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,close,saved
     }catch(e){if(operation.signal.aborted)return;setError(e instanceof Error?e.message:'Could not suggest details. Your photo is attached; you can fill them in yourself.');}
     finally{if(uploadController.current===operation)setBusy('');}
   }
-  async function save(e:React.FormEvent){e.preventDefault();if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}setBusy('Saving your rating…');setError('');try{
+  async function save(e:React.FormEvent){e.preventDefault();if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}setBusy('Saving your rating…');setError('');try{
     const timestamp=ratingTimestamp(tastedAt,editing?.tastedAt);
     if(editing)await request(`/api/ratings/${editing.id}`,'PATCH',{score,note,tastedAt:timestamp,photoId});
     else await request('/api/ratings','POST',{groupId,itemId,name,brand:brand||null,variant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,rereviewOf:rereview?.id,idempotencyKey:key.current});

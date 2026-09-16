@@ -22,6 +22,9 @@ Tech stack: Next16/React19, PostgreSQL, Vitest, browser fixtures.
 
 - [x] Searchable existing-category picker in new ratings and item metadata edits; explicit add-new flow, canonical broader grouping and whitespace/case reuse. Native dialog portal and Escape behavior verified.
 
+- [x] Replace score buttons with a half-point slider and exact manual numeric entry. Enforce one decimal maximum in both new-rating and edit APIs; reject rather than round extra precision.
+- [x] Gold rim appears only for the signed-in viewer’s latest 10/10 score and disappears after a lower rereview.
+
 ## Verification and release
 - [x] Spec review then security/code review; resolve findings.
 - [x] Unit, integration/runtime role, typecheck and build. Desktop/mobile screenshots plus persisted wishlist, brand navigation, personal filter, taste insights and rereview POST browser checks; verify edit still PATCH and ordinary new rating still requires photo.

@@ -22,7 +22,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
   }
   return <Modal title={item?.name||'Item history'} close={close}>
     {error&&<p role="alert" className="error">{error}</p>}
-    {!item?<p className="muted">Loading ratings…</p>:<div className="detail">
+    {!item?<p className="muted">Loading ratings…</p>:<div className={`detail${item.myScore===10?' personal-perfect':''}`}>
       <div className="detail-summary"><Photo id={item.photoId} name={item.name}/><div>
         <div className="detail-brand"><BrandLabel brand={item.brand} interactive/>{item.variant&&<p className="muted">{item.variant}</p>}</div>
         {item.type&&<span className="tag">{item.type}</span>}<Score value={item.average}/>

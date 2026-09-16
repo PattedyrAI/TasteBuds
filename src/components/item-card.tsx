@@ -15,7 +15,7 @@ export function ReviewerBubbles({item}:{item:Item}){
 }
 export function TastingScore({item}:{item:Item}){return <span className="tasting-score"><Score value={item.average}/><span className="score-tastings">{item.tastingCount} {item.tastingCount===1?'tasting':'tastings'}</span></span>;}
 export function ItemCard({item,open}:{item:Item;open:(id:string)=>void}){
- return <article className="item-card" style={categoryStyle(item.type)}><button type="button" className="card-open-hit" onClick={()=>open(item.id)} aria-label={`View ${item.name}`}/>
+ return <article className={`item-card${item.myScore===10?' personal-perfect':''}`} style={categoryStyle(item.type)}><button type="button" className="card-open-hit" onClick={()=>open(item.id)} aria-label={`View ${item.name}`}/>
   <div className="card-image"><SaveItemButton item={item} compact/><Photo id={item.photoId} name={item.name}/>{item.type&&<span className="image-tag category-colour">{item.type}</span>}<button type="button" tabIndex={-1} onClick={()=>open(item.id)} aria-label={`View ${item.name} ratings`} className="card-group-score"><span>Group</span><TastingScore item={item}/></button></div>
   <div className="card-body"><div className="card-title"><div><BrandLabel brand={item.brand} interactive/><h2>{item.name}</h2>{item.variant&&<p>{item.variant}</p>}</div></div>
   <div className={`personal-score${item.myScore==null?' untried':''}`}>{item.myScore==null?<span>You haven’t tried this</span>:<><span>You rated it</span><strong>{item.myScore.toFixed(1)}<small>/10</small></strong></>}</div><footer><ReviewerBubbles item={item}/><span className="card-open" aria-hidden="true"><ArrowUpRight size={18}/></span></footer></div>
