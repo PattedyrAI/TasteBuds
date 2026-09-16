@@ -74,3 +74,14 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 .brand-label{display:inline-block;max-width:100%;padding:5px 9px;border:1px solid #eac3d1;border-left:3px solid #ac315a;border-radius:6px;background:#fae9ef;color:#842345;font-size:13px;font-weight:800;line-height:1.3;letter-spacing:.015em;overflow-wrap:anywhere;white-space:normal}
 .card-title .brand-label{margin-bottom:9px}.podium-step>.brand-label{margin-bottom:8px;align-self:center}.podium-step h3{margin-bottom:16px}.detail-brand .brand-label{font-size:16px;margin-bottom:12px}.history-copy>.brand-label{margin:2px 8px 8px 0}.feed-content>.brand-label{margin:0 8px 4px 0}.ranking .brand-label{margin-top:6px;font-size:11px}
 @media(max-width:760px){.brand-label{font-size:11px;padding:4px 7px}.card-title .brand-label{margin-bottom:7px}.podium-step>.brand-label{font-size:10px;padding:4px 5px}.detail-brand .brand-label{font-size:14px}}
+
+/* Keep the brand attached to its product, with room for long names. */
+.ranking .ranking-copy{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.ranking-copy strong{line-height:1.5}.ranking .ranking-copy .brand-label,.ranking .ranking-copy small{margin:0}
+.repeat-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px}
+.repeat-list .ranking{gap:16px;padding:16px 0;max-width:none}.repeat-list .ranking>.item-photo,.repeat-list .ranking>.photo-placeholder{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:0 0 56px}
+.repeat-list .photo-placeholder span{display:none}.repeat-list .tasting-count{flex-shrink:0;min-width:48px;line-height:1.25}.repeat-list .ranking:last-child{border-bottom:1px solid var(--line)}
+.podium-heading .podium-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;width:min(100%,480px);flex-shrink:0}
+.podium-heading .podium-filters .select-menu{width:100%;min-width:0}.podium-filters>small{grid-column:1/-1;color:var(--muted);font-size:11px;line-height:1.5}
+@media(max-width:1150px){.podium-heading{flex-direction:column}.podium-heading .podium-filters{width:100%;max-width:none}.repeat-list{grid-template-columns:1fr}}
+@media(max-width:480px){.podium-heading .podium-filters{grid-template-columns:1fr}.repeat-list .ranking{gap:12px}.repeat-list .ranking>.item-photo,.repeat-list .ranking>.photo-placeholder{width:48px;height:48px;flex-basis:48px}.stats-columns>section{padding:20px 16px}}

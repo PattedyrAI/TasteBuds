@@ -14,6 +14,22 @@ export function visibleCategories(categories:CategorySummary[],expanded:boolean,
 export function groupFavourites(items:Item[]):Item[]{
   return items.filter(i=>i.raterCount>=3&&i.average!==null).sort((a,b)=>b.average!-a.average!||a.name.localeCompare(b.name)).slice(0,10);
 }
+export const FEATURED_BRAND_MIN_ITEMS=3;
+export const brandKey=(brand:string|null)=>brand?.trim().replace(/\s+/g,' ').toLocaleLowerCase('en')??'';
+/** Count distinct rated products, not repeat tastings of the same product. */
+export function featuredBrands(items:Item[]):{key:string;name:string;itemCount:number}[]{
+  const brands=new Map<string,{name:string;ids:Set<string>}>();
+  for(const item of items){
+    const key=brandKey(item.brand);
+    if(!key||item.tastingCount<1||item.average===null)continue;
+    let entry=brands.get(key);
+    if(!entry){entry={name:item.brand!.trim().replace(/\s+/g,' '),ids:new Set()};brands.set(key,entry);}
+    entry.ids.add(item.id);
+  }
+  return [...brands].filter(([,entry])=>entry.ids.size>=FEATURED_BRAND_MIN_ITEMS)
+    .map(([key,entry])=>({key,name:entry.name,itemCount:entry.ids.size}))
+    .sort((a,b)=>b.itemCount-a.itemCount||a.name.localeCompare(b.name));
+}
 /** Provider profile data is display data, so only load Discord's avatar image paths. */
 export function discordAvatarUrl(value:string|null):string|null{
   if(!value)return null;

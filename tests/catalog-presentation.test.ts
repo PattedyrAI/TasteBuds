@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {categoryStyle,categoryTone} from '../src/components/category-style';
 import type {Item} from '../src/lib/contracts';
-import {rankCategories,visibleCategories,groupFavourites,discordAvatarUrl} from '../src/components/catalog-presentation';
+import {brandKey,featuredBrands,rankCategories,visibleCategories,groupFavourites,discordAvatarUrl} from '../src/components/catalog-presentation';
 const item=(id:string,type:string|null,tastingCount:number,raterCount=1,average:number|null=8):Item=>({id,name:id,type,tastingCount,raterCount,average,groupId:'g',createdBy:'u',brand:null,variant:null,broadCategory:null,photoId:null,lastRatedAt:null});
 describe('collection presentation',()=>{
  it('ranks categories by summed tastings rather than item count and breaks ties by name',()=>{
@@ -42,5 +42,26 @@ describe('category colours',()=>{
   const foods=[...Array.from({length:12},(_,n)=>item('Drink '+n,'Energy drinks',3,3,9)),item('Mac','Mac and cheese',3,3,7)];
   expect(groupFavourites(foods).some(i=>i.id==='Mac')).toBe(false);
   expect(groupFavourites(foods.filter(i=>i.type==='Mac and cheese'))[0].id).toBe('Mac');
+ });
+});
+
+describe('featured brand filters',()=>{
+ const branded=(id:string,brand:string|null,type='Energy drinks',count=1,average:number|null=8)=>({...item(id,type,count,1,average),brand});
+ it('requires three distinct rated products and ignores repeats, blank brands and unrated items',()=>{
+  const one=branded('one','Monster','Energy drinks',50);
+  expect(featuredBrands([one,one,branded('two','Monster')])).toEqual([]);
+  expect(featuredBrands([one,branded('two','Monster'),branded('three','Monster'),branded('unrated','Battery','Energy drinks',0),branded('blank','  '),branded('none',null)])).toEqual([{key:'monster',name:'Monster',itemCount:3}]);
+ });
+ it('combines case and spacing differences and orders brands by product count',()=>{
+  const items=[branded('a','Red Bull'),branded('b',' red  bull '),branded('c','RED BULL'),...Array.from({length:4},(_,i)=>branded('m'+i,'Monster'))];
+  expect(featuredBrands(items).map(b=>[b.name,b.itemCount])).toEqual([['Monster',4],['Red Bull',3]]);
+  expect(items.filter(i=>brandKey(i.brand)==='red bull')).toHaveLength(3);
+ });
+ it('uses the selected category for qualification and keeps the three-person podium rule',()=>{
+  const items=[branded('a','Battery'),branded('b','Battery'),branded('c','Battery','Candy')];
+  expect(featuredBrands(items)).toHaveLength(1);
+  expect(featuredBrands(items.filter(i=>i.type==='Energy drinks'))).toEqual([]);
+  expect(groupFavourites(items)).toEqual([]);
+  expect(groupFavourites([{...items[0],raterCount:3},...items.slice(1)]).map(i=>i.id)).toEqual(['a']);
  });
 });
