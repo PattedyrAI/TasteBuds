@@ -3,12 +3,13 @@ import {useEffect,useRef,useState} from 'react';
 import {Camera,LoaderCircle,Check} from 'lucide-react';
 import type {Item,Rating,RecognitionResult,UploadedPhoto} from '@/lib/contracts';
 import {Modal,Photo,request} from './ui';
+import {RatingInput} from './rating-input';
 import {CategoryPicker} from './category-picker';
 import {resolveCategoryName} from '../domain/personal-discovery';
 import {ratingDateValue,ratingTimestamp} from '@/lib/rating-date';
 export function RatingForm({groupId,item,editing,rereview,categories,close,saved,aiEnabled=false}:{aiEnabled?:boolean;groupId:string;item?:Item;editing?:Rating;rereview?:Rating;categories:string[];close:()=>void;saved:()=>void}){
   const [name,setName]=useState(item?.name||''),[brand,setBrand]=useState(item?.brand||''),[variant,setVariant]=useState(item?.variant||''),[type,setType]=useState(item?.type||'');
-  const [broad,setBroad]=useState(item?.broadCategory||''),[itemId,setItemId]=useState(item?.id),[photoId,setPhotoId]=useState<string|null>(editing?.photoId||rereview?.photoId||null),[score,setScore]=useState(editing?.score||rereview?.score||7),[note,setNote]=useState(editing?.note||'');
+  const [broad,setBroad]=useState(item?.broadCategory||''),[itemId,setItemId]=useState(item?.id),[photoId,setPhotoId]=useState<string|null>(editing?.photoId||rereview?.photoId||null),[score,setScore]=useState<number|''>(editing?.score||rereview?.score||7),[note,setNote]=useState(editing?.note||'');
   const [tastedAt,setTastedAt]=useState(ratingDateValue(editing?.tastedAt||new Date())),[busy,setBusy]=useState(''),[error,setError]=useState(''),[hint,setHint]=useState(''),[matches,setMatches]=useState<Item[]>([]);
   const input=useRef<HTMLInputElement>(null),key=useRef(crypto.randomUUID()),uploadController=useRef<AbortController|null>(null);
   useEffect(()=>()=>uploadController.current?.abort(),[]);
@@ -44,7 +45,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,close,saved
     }catch(e){if(operation.signal.aborted)return;setError(e instanceof Error?e.message:'Could not suggest details. Your photo is attached; you can fill them in yourself.');}
     finally{if(uploadController.current===operation)setBusy('');}
   }
-  async function save(e:React.FormEvent){e.preventDefault();if(!photoId){setError('Add a photo before saving your rating.');return;}setBusy('Saving your rating…');setError('');try{
+  async function save(e:React.FormEvent){e.preventDefault();if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}setBusy('Saving your rating…');setError('');try{
     const timestamp=ratingTimestamp(tastedAt,editing?.tastedAt);
     if(editing)await request(`/api/ratings/${editing.id}`,'PATCH',{score,note,tastedAt:timestamp,photoId});
     else await request('/api/ratings','POST',{groupId,itemId,name,brand:brand||null,variant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,rereviewOf:rereview?.id,idempotencyKey:key.current});
@@ -59,7 +60,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,close,saved
     <div className="form-grid"><label>Brand / Restaurant <span className="optional">optional</span><input maxLength={120} value={brand} disabled={!!itemId||!!editing||!!busy} onChange={e=>setBrand(e.target.value)} placeholder="Add brand or restaurant"/></label><CategoryPicker value={type} onChange={setType} categories={categories} disabled={!!itemId||!!editing||!!busy}/></div>
     {(variant||!itemId)&&<label>Variant <span className="optional">optional</span><input maxLength={120} value={variant} disabled={!!itemId||!!editing||!!busy} onChange={e=>setVariant(e.target.value)} placeholder="Flavour, size, edition…"/></label>}
     {itemId&&!item&&!editing&&<button type="button" className="text-button" disabled={!!busy} onClick={()=>{setItemId(undefined);setHint('Creating a new item.');}}>Create a different item instead</button>}
-    <fieldset className="rating-scale"><legend>Your rating <strong>{score}/10</strong></legend><div className="score-buttons">{Array.from({length:19},(_,i)=>1+i/2).map(n=><button key={n} type="button" disabled={!!busy} aria-label={`Rate ${n} out of 10`} aria-pressed={score===n} className={score===n?'selected':''} onClick={()=>setScore(n)}>{n}</button>)}</div><div className="scale-labels"><span>Not for me</span><span>Would try again</span><span>All-time favourite</span></div></fieldset>
+    <RatingInput value={score} onChange={setScore} disabled={!!busy}/>
     <label>Your notes <span className="optional">optional</span><textarea disabled={!!busy} value={note} maxLength={5000} rows={3} onChange={e=>setNote(e.target.value)} placeholder="What made it worth remembering?"/></label><label>Date tried<input required disabled={!!busy} type="date" value={tastedAt} onChange={e=>setTastedAt(e.target.value)}/></label>
     {!photoId&&<p className="hint">Every rating needs a photo. You can fill in the details yourself if recognition doesn’t find the item.</p>}
     {error&&<p className="error" role="alert">{error}</p>}<button className="button primary full" disabled={!!busy||!photoId}>{editing?'Save changes':rereview?'Save rereview':'Save rating'}</button>

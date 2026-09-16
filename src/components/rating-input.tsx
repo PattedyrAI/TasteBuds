@@ -1,0 +1,6 @@
+'use client';
+import {useId,type CSSProperties} from 'react';
+export function RatingInput({value,onChange,disabled=false}:{value:number|'';onChange:(value:number|'')=>void;disabled?:boolean}){
+ const hint=useId(),sliderValue=value===''?7:Math.min(10,Math.max(1,Math.round(value*2)/2));
+ return <fieldset className="rating-scale rating-slider-field" disabled={disabled}><legend>Your rating</legend><div className="rating-number-row"><label className="rating-number"><span className="sr-only">Your rating</span><input type="number" inputMode="decimal" required min={1} max={10} step={0.01} value={value} aria-describedby={hint} onChange={event=>onChange(Number.isFinite(event.target.valueAsNumber)?event.target.valueAsNumber:'')}/><span aria-hidden="true">/10</span></label></div><input className="rating-slider" type="range" aria-label="Rating slider" aria-valuetext={`${sliderValue} out of 10`} min={1} max={10} step={0.5} value={sliderValue} onChange={event=>onChange(event.target.valueAsNumber)} style={{'--rating-fill':`${(sliderValue-1)/9*100}%`} as CSSProperties}/><div className="scale-labels" aria-hidden="true"><span>1 · Not for me</span><span>10 · All-time favourite</span></div><p id={hint} className="hint">Slide in half points, or type your own score from 1 to 10.</p></fieldset>;
+}
