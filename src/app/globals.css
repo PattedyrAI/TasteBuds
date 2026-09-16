@@ -70,3 +70,7 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 
 .personal-review-actions{display:flex;gap:24px;padding:4px 20px 8px}.personal-review-actions button{min-height:44px}.history-entry>.inline-confirm{margin:0 20px 16px}
 @media(max-width:760px){.bottom-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding-inline:4px}.bottom-nav button{min-width:0;min-height:48px;padding:6px 2px;font-size:9px;letter-spacing:-.15px}.bottom-nav button span{white-space:nowrap}.personal-review-actions{padding-inline:14px}}
+
+.brand-label{display:inline-block;max-width:100%;padding:5px 9px;border:1px solid #eac3d1;border-left:3px solid #ac315a;border-radius:6px;background:#fae9ef;color:#842345;font-size:13px;font-weight:800;line-height:1.3;letter-spacing:.015em;overflow-wrap:anywhere;white-space:normal}
+.card-title .brand-label{margin-bottom:9px}.podium-step>.brand-label{margin-bottom:8px;align-self:center}.podium-step h3{margin-bottom:16px}.detail-brand .brand-label{font-size:16px;margin-bottom:12px}.history-copy>.brand-label{margin:2px 8px 8px 0}.feed-content>.brand-label{margin:0 8px 4px 0}.ranking .brand-label{margin-top:6px;font-size:11px}
+@media(max-width:760px){.brand-label{font-size:11px;padding:4px 7px}.card-title .brand-label{margin-bottom:7px}.podium-step>.brand-label{font-size:10px;padding:4px 5px}.detail-brand .brand-label{font-size:14px}}

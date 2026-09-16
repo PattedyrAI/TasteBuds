@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {RatingStatus} from './rating-status';
+import {BrandLabel} from './brand-label';
 import {Plus,Trash2,Pencil} from 'lucide-react';
 import type {ItemDetail as Detail,Rating,User} from '@/lib/contracts';
 import {Avatar,Modal,Photo,Score,request,date} from './ui';
@@ -20,7 +21,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person}:{id:st
     {error&&<p role="alert" className="error">{error}</p>}
     {!item?<p className="muted">Loading ratings…</p>:<div className="detail">
       <div className="detail-summary"><Photo id={item.photoId} name={item.name}/><div>
-        <p className="muted">{[item.brand,item.variant].filter(Boolean).join(' · ')||'Brand not added'}</p>
+        <div className="detail-brand"><BrandLabel brand={item.brand}/>{item.variant&&<p className="muted">{item.variant}</p>}</div>
         {item.type&&<span className="tag">{item.type}</span>}<Score value={item.average}/>
         <p>{item.raterCount} people · {item.tastingCount} tastings</p><small className="muted">Average of each person’s latest rating.</small>
         {(owner||item.createdBy===user.id)&&<button className="text-button" onClick={()=>setEditItem(v=>!v)}><Pencil size={13}/> Edit item details</button>}
