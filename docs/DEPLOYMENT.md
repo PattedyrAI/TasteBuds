@@ -292,3 +292,13 @@ To nye tester feilet før endringen og passerte etterpå. Verifisering: 197 enhe
 Kildecommit `fbbbc6c3f57c5981084fd009c51ec31aaa5acbc1` nådde Railway `SUCCESS` som utrulling `0b1d0c44-f1db-42c7-b053-ee69649f5ea6`. Alle ni offentlige kontroller passerte mot riktig versjonsmarkør klokken 13:16 UTC. En ekte Safari-økt avviste testfilen `48mp.jpg` før utrullingen og godtok nøyaktig samme fil etterpå: HTTP 200 klokken 13:16:46 UTC og «Photo attached» i skjemaet. Testen lagret ett ubundet testbilde; ingen vurdering ble opprettet.
 
 Brukerens konkrete fil på omtrent 6,48 MB er ikke tilgjengelig for kontroll, så det er ennå ikke bekreftet at den traff pikselgrensen. GitHub-push var blokkert av utløpt innlogging for PattedyrAI; kildecommiten er lagret lokalt og ble publisert direkte gjennom den fungerende Railway-innloggingen.
+
+## 2026-09-16: flere bilder per vurdering
+
+Flerbildefunksjonen ble publisert separat fra pågående kartarbeid. Kildecommit `0ac4b8feffeb8cc988954774f091c770d993daea` nådde Railway `SUCCESS` som `d5efb9ca-c0dc-4f81-9e8a-cba0a71366d7`. Alle ni offentlige kontroller passerte mot denne versjonsmarkøren klokken 13:46 UTC.
+
+Migrering `008_review_photos.sql` ble gjennomført før apputrullingen. Den oppretter en tom koblingstabell for ekstrabilder og begrensede serverrettigheter. Før/etter-kontroll bekreftet uendrede eksisterende radantall og identiske bruker-, produkt- og vurderingshashverdier. Tilgang for nettleserrollene er sperret. Midlertidig SSH-nøkkel ble tilbakekalt og lokale nøkkel-/passordfiler fjernet. Privat kvittering: `.private/gallery-migration-3kjbzdau`. Migrering 007 og kartkoden inngår ikke i denne utgivelsen.
+
+Verifisering av den isolerte utgivelsen: 82 integrasjonstester på en ny PostgreSQL-instans med kun migreringene 001–006 og 008, 167 enhetstester, typesjekk og produksjonsbygg. Sikkerhetsgjennomgangen godkjente endelig commit. Lokal mobiltest ved 320/390 px bekreftet flervalg, to kolonner på smale skjermer, 44 px knapper, forsidebytte, fjerning, delvis feil, bildegrenser, gjenbruk og forstørret galleri. I produksjon viste en innlogget Safari-økt to vellykket opplastede JPG-bilder i samme skjema, med separate fjernknapper og forsidevalg. Skjemaet ble lukket uten å publisere noen vurdering; to ubundne opplastede bilder ble lagret. Lagring av selve flerbildevurderingen ble verifisert mot lokal PostgreSQL.
+
+GitHub-push er fortsatt blokkert av utilgjengelig PattedyrAI-innlogging. Kildecommiten finnes lokalt, og Railway ble oppdatert direkte gjennom den fungerende Railway-innloggingen. Funksjonsbeskrivelse og datakontrakt: `docs/REVIEW-PHOTOS.md`.
