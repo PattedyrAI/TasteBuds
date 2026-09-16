@@ -25,10 +25,12 @@ async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}
       if(p.length===3&&p[2]==='items'&&method==='GET')return service.listItems(userId,p[1],Object.fromEntries(new URL(request.url).searchParams) as ItemFilters);
       if(p.length===3&&p[2]==='matches'&&method==='GET')return findItemMatches(userId,p[1],Object.fromEntries(new URL(request.url).searchParams));
       if(p.length===3&&p[2]==='feed'&&method==='GET')return service.getFeed(userId,p[1],Object.fromEntries(new URL(request.url).searchParams));
+      if(p.length===3&&p[2]==='taste'&&method==='GET')return service.getTasteInsights(userId,p[1]);
       if(p.length===3&&p[2]==='people'&&method==='GET')return service.listPeople(userId,p[1]);
       if(p.length===5&&p[2]==='people'&&p[4]==='ratings'&&method==='GET')return service.getPersonRatings(userId,p[1],p[3],Object.fromEntries(new URL(request.url).searchParams));
       if(p.length===3&&p[2]==='discord'&&method==='POST')return connectDiscord(userId,p[1],body);
     }
+    if(p.length===3&&p[0]==='items'&&p[2]==='save'&&(method==='POST'||method==='DELETE'))return service.saveItem(userId,p[1],method==='POST');
     if(p.length===2&&p[0]==='items'&&method==='GET')return service.getItem(userId,p[1]);
     if(p.length===2&&p[0]==='items'&&method==='PATCH')return service.updateItem(userId,p[1],body);
     if(p[0]==='ratings'){

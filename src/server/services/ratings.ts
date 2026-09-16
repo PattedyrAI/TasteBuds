@@ -18,7 +18,18 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
         return getRatingRecord(db,prior.rows[0].id);
       }
     }
-    if (value.photoId && !(await db.query('SELECT id FROM everrate.photos WHERE id=$1 AND group_id=$2 AND owner_id=$3',[value.photoId,value.groupId,userId])).rowCount) throw new ServiceError(404,'Photo not found');
+    let sourcePhoto: string | null | undefined;
+    if (value.rereviewOf) {
+      // Lock the original while validating it so deletion/editing cannot change
+      // the photo permission between this check and the new history row.
+      const source = await db.query(`SELECT photo_id FROM everrate.ratings
+        WHERE id=$1 AND user_id=$2 AND item_id=$3 AND group_id=$4
+        AND deleted_at IS NULL FOR SHARE`,
+      [value.rereviewOf,userId,value.itemId,value.groupId]);
+      if (!source.rowCount) throw new ServiceError(404,'Original rating not found');
+      sourcePhoto = source.rows[0].photo_id;
+    }
+    if ((!sourcePhoto || value.photoId !== sourcePhoto) && !(await db.query('SELECT id FROM everrate.photos WHERE id=$1 AND group_id=$2 AND owner_id=$3',[value.photoId,value.groupId,userId])).rowCount) throw new ServiceError(404,'Photo not found');
     let itemId = value.itemId;
     if (itemId) {
       if (!(await db.query('SELECT id FROM everrate.items WHERE id=$1 AND group_id=$2',[itemId,value.groupId])).rowCount) throw new ServiceError(404,'Item not found');

@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 import {Pool} from 'pg';
 
 export const runtimeRole='everrate_app';
-const mutable=['users','groups','memberships','brands','item_types','items','photos','ratings','comments','recognition_jobs','discord_connections','discord_outbox'];
+const mutable=['users','groups','memberships','brands','item_types','items','photos','ratings','comments','recognition_jobs','discord_connections','discord_outbox','saved_items'];
 
 /** Called only by the deployment operator, never the running app. */
 export async function provisionRuntimeRole(connectionString:string,password:string,apply=false){

@@ -3,13 +3,13 @@ import {useEffect,useId,useRef,useState,type KeyboardEvent} from 'react';
 import {createPortal} from 'react-dom';
 import {menuPosition} from '@/lib/menu-position';
 import {Check,ChevronDown,Search} from 'lucide-react';
-type Option={value:string;label:string};
+type Option={value:string;label:string;alwaysVisible?:boolean};
 /** A controlled single-choice menu. Search filters labels without changing the selected value. */
 export function SelectMenu({label,value,options,onChange,searchable=false,disabled=false,placeholder='Choose…'}:{label:string;value:string;options:Option[];onChange:(value:string)=>void;searchable?:boolean;disabled?:boolean;placeholder?:string}){
   const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),search=useRef<HTMLInputElement>(null),list=useRef<HTMLDivElement>(null);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[active,setActive]=useState(0),[position,setPosition]=useState({left:0,top:0,width:240,maxHeight:320});
   const typed=useRef({text:'',at:0});
-  const filtered=options.filter(o=>o.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const filtered=options.filter(o=>o.alwaysVisible||o.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const selected=options.find(o=>o.value===value),index=Math.min(active,Math.max(0,filtered.length-1)),activeId=filtered.length?`${id}-option-${index}`:undefined;
   function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}
   function place(){
@@ -31,7 +31,7 @@ export function SelectMenu({label,value,options,onChange,searchable=false,disabl
   useEffect(()=>{if(open)document.getElementById(activeId||'')?.scrollIntoView({block:'nearest'});},[open,activeId]);
   useEffect(()=>{if(disabled)close();},[disabled]);
   function keydown(event:KeyboardEvent){
-    if(event.key==='Escape'){event.preventDefault();close(true);return;}
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);return;}
     if(event.key==='Tab'){close(true);return;}
     if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();setActive(i=>filtered.length?(i+(event.key==='ArrowDown'?1:-1)+filtered.length)%filtered.length:0);return;}
     if(event.key==='Enter'||(!searchable&&event.key===' ')){event.preventDefault();if(filtered[index])choose(filtered[index]);return;}
@@ -47,7 +47,7 @@ export function SelectMenu({label,value,options,onChange,searchable=false,disabl
       <div ref={list} id={`${id}-list`} role="listbox" aria-label={label} tabIndex={searchable?-1:0} aria-activedescendant={searchable?undefined:activeId} className="select-options">
         {filtered.map((option,i)=><div key={option.value} id={`${id}-option-${i}`} role="option" aria-selected={option.value===value} className={`select-option ${i===index?'is-active':''}`} onPointerMove={event=>{if(event.pointerType==='mouse')setActive(i);}} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(option)}><span>{option.label}</span>{option.value===value&&<Check size={16} aria-hidden="true"/>}</div>)}
       </div>
-      {!filtered.length&&<p className="select-empty" role="status">No matching brands or restaurants.</p>}
-    </div>,document.body)}
+      {!filtered.length&&<p className="select-empty" role="status">No matching options.</p>}
+    </div>,trigger.current?.closest('dialog')??document.body)}
   </div>;
 }

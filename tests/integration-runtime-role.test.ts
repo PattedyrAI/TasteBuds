@@ -21,7 +21,7 @@ const owners=[randomUUID(),randomUUID(),randomUUID()];
 const groups:string[]=[];
 const fetchTrap=vi.fn(async()=>{throw new Error('Network is forbidden in runtime-role CRUD tests');});
 // Same grants reviewed in provision-runtime-role.ts; never change the cluster role or its password.
-const mutable=['users','groups','memberships','brands','item_types','items','photos','ratings','comments','recognition_jobs','discord_connections','discord_outbox'];
+const mutable=['users','groups','memberships','brands','item_types','items','photos','ratings','comments','recognition_jobs','discord_connections','discord_outbox','saved_items'];
 
 describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_app connections',()=>{
   beforeAll(async()=>{
@@ -53,7 +53,7 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
       const tx=await admin.connect();
       try{
         await tx.query('BEGIN');
-        for(const table of ['audit_events','discord_outbox','discord_connections','comments'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
+        for(const table of ['audit_events','discord_outbox','discord_connections','comments','saved_items'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
         await tx.query('DELETE FROM everrate.rating_revisions WHERE rating_id IN (SELECT id FROM everrate.ratings WHERE group_id=ANY($1::uuid[]))',[groups]);
         for(const table of ['ratings','recognition_jobs','items','photos','brands','item_types','memberships'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
         await tx.query('DELETE FROM everrate.groups WHERE id=ANY($1::uuid[])',[groups]);
@@ -71,6 +71,7 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
       'UPDATE everrate.legacy_aliases SET evidence=\'forbidden\' WHERE false',
       'DELETE FROM everrate.legacy_aliases WHERE false',
       'DELETE FROM everrate.ratings WHERE false',
+      'DELETE FROM everrate.saved_items WHERE false',
       "UPDATE everrate.audit_events SET action='forbidden' WHERE false",
       'DELETE FROM everrate.rating_revisions WHERE false',
     ])await expect(getPool().query(sql)).rejects.toMatchObject({code:'42501'});
@@ -99,11 +100,19 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
     expect((await getPhoto(member,photos[0].id)).mime_type).toBe('image/jpeg');
     await expect(getPhoto(outsider,photos[0].id)).rejects.toMatchObject({status:404});
     const first=await service.createRating(owner,{groupId:group.id,name:'Mango',brand:'Fixture maker',type:'Energy drink',score:2,note:'First tasting',tastedAt:'2026-01-01T12:00:00Z',photoId:photos[0].id,idempotencyKey:randomUUID()});
-    const repeatedInput={groupId:group.id,itemId:first.itemId,score:8,note:'Second tasting',tastedAt:'2026-01-02T12:00:00Z',photoId:photos[1].id,idempotencyKey:randomUUID()};
+    // Imported reviews can reference a photo stored under another canonical user.
+    await admin!.query('UPDATE everrate.photos SET owner_id=$1 WHERE id=$2',[member,photos[0].id]);
+    const repeatedInput={groupId:group.id,itemId:first.itemId,rereviewOf:first.id,score:8,note:'Second tasting',tastedAt:'2026-01-02T12:00:00Z',photoId:photos[0].id,idempotencyKey:randomUUID()};
     const repeated=await service.createRating(owner,repeatedInput);
     expect((await service.createRating(owner,repeatedInput)).id).toBe(repeated.id);
     const other=await service.createRating(member,{groupId:group.id,itemId:first.itemId,score:6,tastedAt:'2026-01-02T13:00:00Z',photoId:photos[2].id});
-    expect(await service.getItem(member,first.itemId)).toMatchObject({average:7,raterCount:2,tastingCount:3,type:'Energy drinks'});
+    expect(await service.saveItem(member,first.itemId,true)).toEqual({saved:true});
+    expect(await service.saveItem(member,first.itemId,true)).toEqual({saved:true});
+    expect(await service.getItem(member,first.itemId)).toMatchObject({average:7,raterCount:2,tastingCount:3,type:'Energy drinks',myScore:6,saved:true});
+    expect(await service.getItem(owner,first.itemId)).toMatchObject({myScore:8,saved:false});
+    expect(await service.getTasteInsights(owner,group.id)).toEqual({matches:[],divisive:[]});
+    expect(await service.saveItem(member,first.itemId,false)).toEqual({saved:false});
+    await expect(service.saveItem(outsider,first.itemId,true)).rejects.toMatchObject({status:404});
     await expect(service.updateRating(member,first.id,{score:10})).rejects.toMatchObject({status:403});
     expect((await service.updateRating(owner,first.id,{score:3,note:'Corrected first tasting'})).score).toBe(3);
     expect((await service.updateRating(owner,repeated.id,{score:9})).score).toBe(9);

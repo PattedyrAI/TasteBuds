@@ -8,12 +8,12 @@ export interface PersonRating { isRereview?: boolean; countsTowardAverage?: bool
 export interface PersonRatingsPage { person: Person; ratings: PersonRating[]; nextCursor: string | null }
 export interface GroupDetail extends Group { inviteCode: string | null; members: Member[]; discordConnected: boolean; stats: { itemCount: number; tastingCount: number; activeMembers: number } }
 export interface Bootstrap { user: User; groups: Group[] }
-export interface Item { reviewers?: Pick<User, 'id' | 'displayName' | 'avatarUrl'>[]; id: string; groupId: string; createdBy: string; name: string; brand: string | null; variant: string | null; type: string | null; broadCategory: string | null; photoId: string | null; average: number | null; raterCount: number; tastingCount: number; lastRatedAt: string | null }
+export interface Item { myScore?: number | null; saved?: boolean; reviewers?: Pick<User, 'id' | 'displayName' | 'avatarUrl'>[]; id: string; groupId: string; createdBy: string; name: string; brand: string | null; variant: string | null; type: string | null; broadCategory: string | null; photoId: string | null; average: number | null; raterCount: number; tastingCount: number; lastRatedAt: string | null }
 export interface Comment { id: string; ratingId: string; author: User; body: string; createdAt: string }
 export interface Rating { isRereview?: boolean; countsTowardAverage?: boolean; id: string; groupId: string; itemId: string; author: User; score: number; note: string | null; tastedAt: string; createdAt: string; updatedAt: string; photoId: string | null; legacyPhotoMissing: boolean; comments: Comment[] }
 export interface FeedEntry extends Rating { itemName: string; brand: string | null; variant: string | null }
 export interface ItemDetail extends Item { ratings: Rating[] }
-export interface CreateRatingInput { groupId: string; itemId?: string; name?: string; brand?: string | null; variant?: string | null; type?: string | null; broadCategory?: string | null; score: number; note?: string | null; tastedAt?: string; photoId: string; idempotencyKey?: string }
+export interface CreateRatingInput { groupId: string; itemId?: string; rereviewOf?: string; name?: string; brand?: string | null; variant?: string | null; type?: string | null; broadCategory?: string | null; score: number; note?: string | null; tastedAt?: string; photoId: string; idempotencyKey?: string }
 export interface UpdateRatingInput { score?: number; note?: string | null; tastedAt?: string; photoId?: string }
 export interface ItemFilters { search?: string; brand?: string; type?: string; sort?: 'recent' | 'score' | 'name' | 'most-rated'; limit?: number; offset?: number }
 export interface GroupPatch { name?: string; ownerId?: string; leave?: boolean }
@@ -24,3 +24,13 @@ export interface UpdateItemInput { name?: string; brand?: string | null; variant
 export interface UpdateCommentInput { body: string }
 
 export interface UpdatePreferencesInput { aiEnabled: boolean }
+
+export interface TasteMatch {
+  person: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
+  sharedCount: number;
+  meanDifference: number;
+  similarCount: number;
+  disagreements: { itemId: string; itemName: string; myScore: number; theirScore: number; difference: number }[];
+}
+export interface DivisiveItem { itemId: string; itemName: string; brand: string | null; lowScore: number; highScore: number; raterCount: number }
+export interface TasteInsights { matches: TasteMatch[]; divisive: DivisiveItem[] }

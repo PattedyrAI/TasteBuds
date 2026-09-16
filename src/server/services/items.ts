@@ -19,6 +19,17 @@ export const itemSelect = `SELECT i.*,b.name AS brand,t.name AS type,
  (SELECT max(tasted_at) FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) last_rated_at
  FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id LEFT JOIN everrate.item_types t ON t.id=i.type_id`;
 function item(row: Record<string, any>): Item { return { reviewers:row.reviewers??[],id:row.id,groupId:row.group_id,createdBy:row.created_by,name:row.name,brand:row.brand || null,variant:row.variant || null,type:row.type || null,broadCategory:row.broad_category || null,photoId:row.photo_id || null,average:row.average === null ? null : Number(row.average),raterCount:Number(row.rater_count),tastingCount:Number(row.tasting_count),lastRatedAt:row.last_rated_at ? iso(row.last_rated_at) : null }; }
+/** Enrich in one batch using only the authenticated canonical user. */
+async function personalItems(db: Db, rows: Record<string, any>[], userId: string): Promise<Item[]> {
+  if (!rows.length) return [];
+  const personal = await db.query(`SELECT i.id,
+    (SELECT r.score FROM everrate.ratings r WHERE r.item_id=i.id AND r.user_id=$2 AND r.deleted_at IS NULL
+      ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC LIMIT 1) my_score,
+    EXISTS(SELECT 1 FROM everrate.saved_items s WHERE s.item_id=i.id AND s.user_id=$2 AND s.removed_at IS NULL) saved
+    FROM everrate.items i WHERE i.id=ANY($1::uuid[])`,[rows.map(row=>row.id),userId]);
+  const byId = new Map(personal.rows.map(row=>[row.id,row]));
+  return rows.map(row=>{const own=byId.get(row.id)!;return {...item(row),myScore:own.my_score===null?null:Number(own.my_score),saved:own.saved};});
+}
 export const ratingSelect = `SELECT r.*,${ratingStatusColumns},${userColumns},i.name item_name,b.name brand,i.variant FROM everrate.ratings r JOIN everrate.users u ON u.id=r.user_id JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id`;
 export function comment(row: Record<string, any>): Comment { return {id:row.id,ratingId:row.rating_id,author:user(row),body:row.body,createdAt:iso(row.created_at)}; }
 export async function ratingRows(db: Db, rows: Record<string, any>[]): Promise<FeedEntry[]> {
@@ -41,14 +52,14 @@ export async function listItems(userId: string, groupId: string, filters: ItemFi
   const filter = parse(z.object({search:z.string().max(200).optional(),brand:z.string().max(200).optional(),type:z.string().max(200).optional(),sort:z.enum(['recent','score','name','most-rated']).optional(),limit:z.coerce.number().int().min(1).max(200).default(100),offset:z.coerce.number().int().min(0).max(100000).default(0)}),filters);
   return transaction(async db=> {
     await requireMembership(db,userId,groupId);
-    const values: unknown[] = [groupId]; let where = ' WHERE i.group_id=$1 AND EXISTS (SELECT 1 FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL)';
+    const values: unknown[] = [groupId,userId]; let where = ' WHERE i.group_id=$1 AND (EXISTS (SELECT 1 FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) OR EXISTS (SELECT 1 FROM everrate.saved_items s WHERE s.item_id=i.id AND s.user_id=$2 AND s.removed_at IS NULL))';
     if (filter.search) { values.push('%'+filter.search.replace(/[\\%_]/g,'\\$&')+'%'); where += ` AND concat_ws(' ',i.name,b.name,i.variant,t.name) ILIKE $${values.length}`; }
     if (filter.brand) { values.push(filter.brand); where += ` AND b.name=$${values.length}`; }
     if (filter.type) { values.push(filter.type); where += ` AND t.name=$${values.length}`; }
     const orders = {recent:'last_rated_at DESC NULLS LAST',score:'average DESC NULLS LAST',name:'lower(i.name)', 'most-rated':'tasting_count DESC'};
     values.push(filter.limit,filter.offset);
     const result = await db.query(`${itemSelect}${where} ORDER BY ${orders[filter.sort || 'recent']},i.id LIMIT $${values.length-1} OFFSET $${values.length}`,values);
-    return result.rows.map(item);
+    return personalItems(db,result.rows,userId);
   });
 }
 export async function getItem(userId: string, itemId: string): Promise<ItemDetail> {
@@ -58,7 +69,7 @@ export async function getItem(userId: string, itemId: string): Promise<ItemDetai
     await requireMembership(db,userId,found.rows[0].group_id);
     const result = await db.query(`${itemSelect} WHERE i.id=$1`,[itemId]);
     const ratings = await db.query(`${ratingSelect} WHERE r.item_id=$1 AND r.deleted_at IS NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC`,[itemId]);
-    return {...item(result.rows[0]),ratings:await ratingRows(db,ratings.rows)};
+    return {...(await personalItems(db,result.rows,userId))[0],ratings:await ratingRows(db,ratings.rows)};
   });
 }
 export async function getFeed(userId: string, groupId: string, input: {limit?:number;offset?:number} = {}): Promise<FeedEntry[]> {
@@ -89,6 +100,20 @@ export async function updateItem(userId: string, itemId: string, input: UpdateIt
     await audit(db,userId,row.group_id,'item.update',itemId,{previous,updated});
     const result = await db.query(`${itemSelect} WHERE i.id=$1`,[itemId]);
     const ratings = await db.query(`${ratingSelect} WHERE r.item_id=$1 AND r.deleted_at IS NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC`,[itemId]);
-    return {...item(result.rows[0]),ratings:await ratingRows(db,ratings.rows)};
+    return {...(await personalItems(db,result.rows,userId))[0],ratings:await ratingRows(db,ratings.rows)};
+  });
+}
+
+export async function saveItem(userId: string, itemId: string, saved: boolean): Promise<{saved:boolean}> {
+  validId(itemId);
+  return transaction(async db=>{
+    const found=await db.query('SELECT group_id FROM everrate.items WHERE id=$1',[itemId]);
+    if (!found.rowCount) throw new ServiceError(404,'Item not found');
+    const groupId=found.rows[0].group_id;
+    await requireMembership(db,userId,groupId);
+    if (saved) await db.query(`INSERT INTO everrate.saved_items(group_id,item_id,user_id) VALUES($1,$2,$3)
+      ON CONFLICT(user_id,item_id) DO UPDATE SET removed_at=NULL`,[groupId,itemId,userId]);
+    else await db.query('UPDATE everrate.saved_items SET removed_at=coalesce(removed_at,now()) WHERE user_id=$1 AND item_id=$2',[userId,itemId]);
+    return {saved};
   });
 }

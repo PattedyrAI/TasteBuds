@@ -2,19 +2,19 @@
 import {RatingStatus} from './rating-status';
 import {BrandLabel} from './brand-label';
 import {useEffect,useRef,useState} from 'react';
-import {ArrowLeft,ArrowUpRight,Pencil,Trash2} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,Pencil,Trash2,Repeat2} from 'lucide-react';
 import type {Person,PersonRatingsPage} from '@/lib/contracts';
 import {Avatar,Photo,Score,date,request} from './ui';
 
-type ReviewActions={viewerId?:string;edit?:(ratingId:string,itemId:string)=>Promise<void>;changed?:()=>void};
-export function People({groupId,personId,select,open,viewerId,edit,changed}:{groupId:string;personId:string|null;select:(id:string|null)=>void;open:(itemId:string)=>void}&ReviewActions){
+type ReviewActions={viewerId?:string;edit?:(ratingId:string,itemId:string)=>Promise<void>;rereview?:(ratingId:string,itemId:string)=>Promise<void>;changed?:()=>void};
+export function People({groupId,personId,select,open,viewerId,edit,rereview,changed}:{groupId:string;personId:string|null;select:(id:string|null)=>void;open:(itemId:string)=>void}&ReviewActions){
   const [people,setPeople]=useState<Person[]|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setPeople(null);setError('');
     void request<Person[]>(`/api/groups/${groupId}/people`,'GET',undefined,controller.signal).then(value=>{if(!controller.signal.aborted)setPeople(value);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
     return()=>controller.abort();
   },[groupId,retry]);
-  if(personId)return <PersonHistory key={`${groupId}-${personId}`} groupId={groupId} personId={personId} back={()=>select(null)} open={open} viewerId={viewerId} edit={edit} changed={changed}/>;
+  if(personId)return <PersonHistory key={`${groupId}-${personId}`} groupId={groupId} personId={personId} back={()=>select(null)} open={open} viewerId={viewerId} edit={edit} rereview={rereview} changed={changed}/>;
   return <section aria-label="People in this group">
     {error?<div className="error" role="alert">{error} <button onClick={()=>setRetry(v=>v+1)}>Try again</button></div>:!people?<p role="status">Loading your people…</p>:<div className="people-grid">{people.map(person=><button className="person-card" key={person.id} onClick={()=>select(person.id)}>
       <Avatar name={person.displayName} url={person.avatarUrl}/>
@@ -28,7 +28,7 @@ export function People({groupId,personId,select,open,viewerId,edit,changed}:{gro
   </section>;
 }
 
-function PersonHistory({groupId,personId,back,open,viewerId,edit,changed}:{groupId:string;personId:string;back:()=>void;open:(itemId:string)=>void}&ReviewActions){
+function PersonHistory({groupId,personId,back,open,viewerId,edit,rereview,changed}:{groupId:string;personId:string;back:()=>void;open:(itemId:string)=>void}&ReviewActions){
   const [page,setPage]=useState<PersonRatingsPage|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(true),[retry,setRetry]=useState(0);
   const [removing,setRemoving]=useState<string|null>(null);
   const own=personId===viewerId;
@@ -59,7 +59,7 @@ function PersonHistory({groupId,personId,back,open,viewerId,edit,changed}:{group
       <div className="stat-strip person-stats"><div><strong>{page.person.ratingCount}</strong><span>ratings</span></div><div><strong>{page.person.itemCount}</strong><span>items tried</span></div></div>
       {page.ratings.length===0?<div className="empty-state"><h3>No ratings yet.</h3><p>{own?'Your first tasting will appear here.':'Their first tasting will appear here.'}</p></div>:<div className="history-list">{page.ratings.map(r=><article className="history-entry" key={r.id}><button className="history-card" onClick={()=>open(r.itemId)}>
         <div className="history-photo"><Photo id={r.photoId} name={r.itemName}/></div><div className="history-copy"><h3>{r.itemName} <ArrowUpRight size={15} aria-hidden="true"/></h3><BrandLabel brand={r.brand}/>{r.variant&&<p>{r.variant}</p>}<time dateTime={r.tastedAt}>{date(r.tastedAt)}</time><RatingStatus rating={r}/>{r.note&&<p className="note">{r.note}</p>}{!r.photoId&&r.legacyPhotoMissing&&<small>Historical rating · original photo unavailable</small>}</div><Score value={r.score}/>
-      </button>{own&&edit&&<div className="personal-review-actions"><button className="text-button" disabled={busy} aria-label={`Edit your review of ${r.itemName} from ${date(r.tastedAt)}`} onClick={()=>void manage(()=>edit(r.id,r.itemId))}><Pencil size={15}/> Edit</button><button className="text-button danger" disabled={busy} aria-label={`Delete your review of ${r.itemName} from ${date(r.tastedAt)}`} onClick={()=>setRemoving(r.id)}><Trash2 size={15}/> Delete</button></div>}
+      </button>{own&&edit&&<div className="personal-review-actions">{rereview&&<button className="text-button" disabled={busy} aria-label={`Rereview ${r.itemName}`} onClick={()=>void manage(()=>rereview(r.id,r.itemId))}><Repeat2 size={15}/> Rereview</button>}<button className="text-button" disabled={busy} aria-label={`Edit your review of ${r.itemName} from ${date(r.tastedAt)}`} onClick={()=>void manage(()=>edit(r.id,r.itemId))}><Pencil size={15}/> Edit</button><button className="text-button danger" disabled={busy} aria-label={`Delete your review of ${r.itemName} from ${date(r.tastedAt)}`} onClick={()=>setRemoving(r.id)}><Trash2 size={15}/> Delete</button></div>}
       {own&&removing===r.id&&<div className="inline-confirm"><p>Delete this review? Your other tastings will stay.</p><button disabled={busy} onClick={()=>void manage(async()=>{await request(`/api/ratings/${r.id}`,'DELETE');setRemoving(null);if(changed)changed();else setRetry(v=>v+1);})}>Delete review</button><button disabled={busy} onClick={()=>setRemoving(null)}>Keep review</button></div>}
       </article>)}</div>}
       <p className="muted" role="status">Showing {page.ratings.length} of {page.person.ratingCount} ratings</p>

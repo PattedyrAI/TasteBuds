@@ -1,6 +1,11 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi,afterEach} from 'vitest';
 import {ratingDateValue,ratingTimestamp} from '../src/lib/rating-date';
 describe('rating calendar dates',()=>{
+  afterEach(()=>vi.useRealTimers());
+  it('uses the current instant for a new tasting today so a rereview follows an earlier one today',()=>{
+    vi.useFakeTimers();vi.setSystemTime(new Date('2026-09-16T18:34:00Z'));
+    expect(ratingTimestamp(ratingDateValue())).toBe('2026-09-16T18:34:00.000Z');
+  });
   it('preserves the original instant when correcting a score without changing its date',()=>{
     const original='2024-07-01T21:46:38.123Z';
     expect(ratingTimestamp(ratingDateValue(original),original)).toBe(original);
