@@ -282,3 +282,13 @@ The photo picker explicitly offers `.jpg` and `.jpeg` files. Upload requests now
 Regression tests reproduced the previous rejection of valid JPEG bytes before implementation. Verification passed: 197 unit tests, five targeted real-PostgreSQL photo/recognition tests, TypeScript/build and 26 desktop/mobile browser checks. Database tests decode, store and retrieve progressive JPEGs under standard, alias, missing and generic types, and reject unsupported disguised content. Browser checks cover `.jpg`, `.JPG`, `.jpeg` picker support, empty file metadata, preview/save availability and retrying the same file. These used disposable local databases and synthetic browser fixtures. Independent security/correctness review approved the fix. No database migration was required.
 
 Release `bc5a5c8357ca367237f2eb2d9f1d0bafa08ec93c` reached Railway `SUCCESS` as `abf09d39-f70b-459c-af53-4b0f2ced209f`. All nine public launch checks passed against the exact release marker at `2026-09-16T08:46:15.695Z`. No production photo or rating was created during verification.
+
+## 2026-09-16: JPG fra kameraer med 48 megapiksler
+
+Den tidligere grensen på 40 millioner piksler avviste gyldige JPG-bilder på 8064 × 6048 piksler, selv når filen var mindre enn 10 MiB. Grensen er nå 64 millioner piksler. Bilder over grensen får en konkret feilmelding; annen dekodingsfeil anbefaler å eksportere en ny JPEG eller PNG. Logging inneholder bare en fast årsakskategori og byteantall. Filstørrelse, medlemskontroll, dagskvote, formatkontroll, metadatafjerning og nedskalering til 1600 piksler beholdes.
+
+To nye tester feilet før endringen og passerte etterpå. Verifisering: 197 enhetstester, sju integrasjonstester mot midlertidig lokal PostgreSQL, typesjekk og produksjonsbygg. Uavhengig kodegjennomgang godkjente endringen. Ingen databasemigrering var nødvendig.
+
+Kildecommit `fbbbc6c3f57c5981084fd009c51ec31aaa5acbc1` nådde Railway `SUCCESS` som utrulling `0b1d0c44-f1db-42c7-b053-ee69649f5ea6`. Alle ni offentlige kontroller passerte mot riktig versjonsmarkør klokken 13:16 UTC. En ekte Safari-økt avviste testfilen `48mp.jpg` før utrullingen og godtok nøyaktig samme fil etterpå: HTTP 200 klokken 13:16:46 UTC og «Photo attached» i skjemaet. Testen lagret ett ubundet testbilde; ingen vurdering ble opprettet.
+
+Brukerens konkrete fil på omtrent 6,48 MB er ikke tilgjengelig for kontroll, så det er ennå ikke bekreftet at den traff pikselgrensen. GitHub-push var blokkert av utløpt innlogging for PattedyrAI; kildecommiten er lagret lokalt og ble publisert direkte gjennom den fungerende Railway-innloggingen.
