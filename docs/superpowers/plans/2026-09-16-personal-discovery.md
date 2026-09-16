@@ -28,4 +28,4 @@ Tech stack: Next16/React19, PostgreSQL, Vitest, browser fixtures.
 ## Verification and release
 - [x] Spec review then security/code review; resolve findings.
 - [x] Unit, integration/runtime role, typecheck and build. Desktop/mobile screenshots plus persisted wishlist, brand navigation, personal filter, taste insights and rereview POST browser checks; verify edit still PATCH and ordinary new rating still requires photo.
-- [ ] Review migration and test rollback in local fixture; apply additive migration to canonical production DB with before/after data checks and runtime grants. Publish reviewed source using existing isolated release workflow, verify readiness, release marker and public checks. No synthetic production ratings.
+- [x] Review migration and test rollback in local fixture; apply additive migration to canonical production DB with before/after data checks and runtime grants. Publish reviewed source using existing isolated release workflow, verify readiness, release marker and public checks. No synthetic production ratings.
