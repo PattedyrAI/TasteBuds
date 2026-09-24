@@ -40,6 +40,7 @@ Next.js serves the UI and private API. PostgreSQL stores people, groups, items, 
 - [Product specification](docs/SPEC.md)
 - [Implementation status](docs/IMPLEMENTATION.md)
 - [Deployment and verification](docs/DEPLOYMENT.md)
+- [Discord channel setup and routing](docs/DISCORD.md)
 - [Historical import](docs/IMPORT.md)
 - [Photo identity review](docs/PHOTO-IDENTITIES.md)
 
