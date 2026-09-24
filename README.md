@@ -36,6 +36,7 @@ Integration tests require an explicitly configured disposable local `TEST_DATABA
 
 Next.js serves the UI and private API. PostgreSQL stores people, groups, items, ratings, revision history and photo bytes. Supabase Auth validates Discord sign-ins. The original `everrate` database schema and migration identifiers remain stable to preserve imported data and audit references; the product name is **TasteBuds**.
 
+- [Kategorimaler og Google Maps-oppsett](docs/GOOGLE-MAPS.md)
 - [Product specification](docs/SPEC.md)
 - [Implementation status](docs/IMPLEMENTATION.md)
 - [Deployment and verification](docs/DEPLOYMENT.md)

@@ -4,6 +4,7 @@ import {Pool} from 'pg';
 import {migrate} from '../scripts/migrate';
 import {getPool} from '../src/server/db';
 import * as service from '../src/server/service';
+import {createCategory} from '../src/server/services/categories';
 
 const url=process.env.PEOPLE_TEST_DATABASE_URL;
 if(url){const target=new URL(url);if(!['postgres:','postgresql:'].includes(target.protocol)||!['localhost','127.0.0.1','[::1]'].includes(target.hostname)||!target.pathname.endsWith('_test')||target.search)throw new Error('Use a local disposable PEOPLE_TEST_DATABASE_URL');}
@@ -17,6 +18,7 @@ describe.skipIf(!url)('group People and complete person history',()=>{
     const target=new URL(url!);target.pathname='/'+database;await migrate(target.toString());process.env.DATABASE_URL=target.toString();
     for(const [id,name] of [[owner,'Owner'],[person,'Canonical reviewer'],[quiet,'No ratings yet'],[outsider,'Outsider'],[former,'Former member']])await service.ensureUser({id,displayName:name,...(id===person?{discordId:'998877665544332211'}:{})});
     const group=await service.createGroup(owner,{name:'People fixture'});groupId=group.id;invite=group.inviteCode!;
+    await createCategory(owner,groupId,{name:'Tea',fields:[]});
     for(const id of [person,quiet,former])await service.joinGroup(id,{code:invite});
     const other=await service.createGroup(person,{name:'Other private group'});otherGroupId=other.id;
     const photo=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[groupId,person,Buffer.from('fixture'),'a'.repeat(64)])).rows[0].id;
