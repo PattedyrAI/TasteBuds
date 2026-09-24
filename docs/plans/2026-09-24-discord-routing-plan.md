@@ -16,3 +16,5 @@ Observed destinations in Safari:
 - food: 1282374906683592897
 
 Risks: manual category assignment means new categories need an explicit routing choice. In-flight HTTP requests cannot be recalled after a disconnect. Discord does not provide request idempotency; an uncertain HTTP result may cause retry duplication. Existing uncommitted navigation changes remain in the canonical checkout and are excluded from this worktree.
+
+User refinement: include the review's cover photo and an Open TasteBuds CTA. Use Discord rich embeds and a native link button, with one review per message; arbitrary HTML is unsupported. Fetch only the rating's same-group photo, attach its bytes as multipart data, and keep the authenticated photo route unchanged. Verify payload bytes/MIME, exact item deep link, invalid-photo failure, cancellation and retries. Public sample photos are confined to the clearly labelled bot-testing demonstration.

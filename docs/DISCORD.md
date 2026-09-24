@@ -13,7 +13,7 @@ Verified in Safari on 2026-09-24:
 
 Both channels now have a webhook named **TasteBuds**, created on 2026-09-24. Their server and channel IDs were verified through Discord's webhook API. The app connections are not activated yet.
 
-A separate **TasteBuds Test** webhook posts only to `#bot-testing` (`1462032010217394348`). The [live demonstration](https://discord.com/channels/984524869498728478/1462032010217394348/1552584912371187727) contains fictional ratings, sample photos and an **Open TasteBuds** link button. This manually sent preview does not prove app-to-channel delivery. Its enhanced photo/button presentation still needs to be added to the production sender; the current sender uses the existing text embed.
+A separate **TasteBuds Test** webhook posts only to `#bot-testing` (`1462032010217394348`). The [energy-drink preview](https://discord.com/channels/984524869498728478/1462032010217394348/1552584912371187727) and [food preview](https://discord.com/channels/984524869498728478/1462032010217394348/1552586650482380840) contain fictional ratings, sample photos and an **Open TasteBuds** link button. These manually sent previews do not prove app-to-channel delivery. The sender now implements the same photo/score/button structure locally; it is not deployed.
 
 At the user's request, the three webhook URLs are stored in a local Markdown file outside Git, restricted to the owner's account. No credentials belong in this document.
 
@@ -35,6 +35,8 @@ The existing runtime role already has privileges on both changed tables. No new 
 
 Review creation and connection changes serialize on the group row. The outbox records the selected route when a review is saved and resolves the current webhook immediately before sending. Removed categories or disabled routes cancel pending delivery. An item moved out of its queued route is cancelled, not redirected to another channel. Category renames retain their ID and route.
 
+Each review is one Discord message with a rich embed and a native link button to its item in TasteBuds. The worker attaches the review's primary photo as multipart data, fetched through the rating/group relationship immediately before sending. Private photo endpoints remain authenticated. Unsupported or unavailable linked photos fail delivery instead of exposing a different photo or sending an incomplete card. Older reviews without a linked photo keep text-only delivery. Discord does not render arbitrary HTML; `with_components=true` enables the non-interactive link button on these incoming webhooks.
+
 Discord retries remain bounded; mentions are disabled and requests use `wait=true`. A connection change cannot recall an already-started HTTP request. Discord webhook requests have no application idempotency key, so an uncertain HTTP result can still produce a duplicate on retry.
 
 ## Local verification
@@ -51,4 +53,4 @@ npm run build
 
 Integration tests intercept Discord HTTP calls. They prove routing and queue behavior, not real channel receipt. The runtime's database configuration must never point these tests at production.
 
-Local verification on 2026-09-24: unit suite 179 passed; integration suite 93 passed before two additional routing cases; the final focused Discord suites passed all 14 cases. Typecheck and production build passed. A browser harness using the actual settings component verified both forms submit the correct route/category, clear password fields after saving, show saved connection state, and fit a 390px viewport. Independent review is pending because the shared dispatcher rejects this session's unverified T3 binding.
+Local verification on 2026-09-24: unit suite 180 passed (54 skipped); integration suite 96 passed (9 skipped). Typecheck and production build passed. Integration assertions cover attached bytes/MIME, exact item-link buttons and database rejection of unsupported image types. A browser harness using the actual settings component verified both forms submit the correct route/category, clear password fields after saving, show saved connection state, and fit a 390px viewport. The test-channel previews use the app formatter with public sample photos and an app-home CTA because they have no real item records. Independent review is pending because the shared dispatcher rejects this session's unverified T3 binding.

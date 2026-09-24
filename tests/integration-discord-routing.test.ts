@@ -13,7 +13,7 @@ const foodHook='https://discord.com/api/webhooks/223456789012345678/abcdefghijkl
 const owner=randomUUID(),member=randomUUID();
 const ownerName='Route owner '+owner;
 let groupId:string,photoId:string,energyId:string,foodId:string;
-let posted:{target:string;body:{embeds:{url:string}[]}}[];
+let posted:{target:string;body:{embeds:{url:string;image?:{url:string}}[];components:{components:{url:string;label:string}[]}[]};photo?:string;mime?:string}[];
 const rate=async(type:string)=>{
   const rating=await createRating(owner,{groupId,name:type+' '+randomUUID(),type,photoId,score:8,idempotencyKey:randomUUID()});
   // The worker is global and bounded. Put only our fixtures first without
@@ -31,8 +31,10 @@ describe.skipIf(!url)('Discord category destinations',()=>{
   beforeEach(async()=>{
     posted=[];
     vi.stubGlobal('fetch',vi.fn(async(target:string,init:RequestInit)=>{
-      const body=JSON.parse(String(init.body));
-      if(body.embeds[0].footer.text===`Rated by ${ownerName} on TasteBuds`)posted.push({target:String(target),body});
+      const form=init.body instanceof FormData?init.body:undefined;
+      const body=JSON.parse(String(form?form.get('payload_json'):init.body));
+      const file=form?.get('files[0]') as File|undefined;
+      if(body.embeds[0].footer.text===`Rated by ${ownerName} on TasteBuds`)posted.push({target:String(target),body,photo:file?await file.text():undefined,mime:file?.type});
       return Response.json({});
     }));
     const group=await createGroup(owner,{name:'Routing '+randomUUID()});groupId=group.id;
@@ -54,14 +56,26 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     await processDiscordOutbox();
     expect(posted).toHaveLength(2);
     const destinations=new Map(posted.map(({target,body})=>[body.embeds[0].url,target]));
-    expect(destinations.get('https://example.test/app?item='+energy.itemId)).toBe(energyHook+'?wait=true');
-    expect(destinations.get('https://example.test/app?item='+food.itemId)).toBe(foodHook+'?wait=true');
+    expect(destinations.get('https://example.test/app?item='+energy.itemId)).toBe(energyHook+'?wait=true&with_components=true');
+    expect(destinations.get('https://example.test/app?item='+food.itemId)).toBe(foodHook+'?wait=true&with_components=true');
+    for(const post of posted){
+      expect(post.photo).toBe('photo');expect(post.mime).toBe('image/png');
+      expect(post.body.embeds[0].image?.url).toBe('attachment://review.png');
+      expect(post.body.components[0].components[0]).toMatchObject({label:'Open TasteBuds',url:post.body.embeds[0].url});
+      expect(JSON.stringify(post.body)).not.toContain('/api/photos/');
+    }
     expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE group_id=$1',[groupId])).rows).toEqual([{status:'sent'},{status:'sent'}]);
   });
   it('rejects overlapping categories and an all-reviews destination alongside specific routes',async()=>{
     await connect('energy_drinks',[energyId]);
     await expect(connect('food',[energyId])).rejects.toMatchObject({status:409});
     await expect(connectDiscord(owner,groupId,{url:foodHook,enabled:true})).rejects.toMatchObject({status:409});
+  });
+  it('rejects unsupported image types at the database boundary and preserves the valid attachment',async()=>{
+    await connect('food',[foodId]);await rate('Pizza');
+    await expect(getPool().query("UPDATE everrate.photos SET mime_type='image/svg+xml' WHERE id=$1",[photoId])).rejects.toMatchObject({code:'23514'});
+    await processDiscordOutbox();expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({mime:'image/png',photo:'photo'});
   });
   it('rejects foreign categories and non-managers without changing the connection',async()=>{
     const other=await createGroup(owner,{name:'Other'});
@@ -75,7 +89,7 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     const energy=await rate('Energy drinks'),food=await rate('Pizza');
     await connectDiscord(owner,groupId,{route:'energy_drinks',enabled:false});
     await processDiscordOutbox();
-    expect(posted.map(({target})=>target)).toEqual([foodHook+'?wait=true']);
+    expect(posted.map(({target})=>target)).toEqual([foodHook+'?wait=true&with_components=true']);
     const states=(await getPool().query('SELECT rating_id,status FROM everrate.discord_outbox WHERE group_id=$1',[groupId])).rows;
     expect(states).toContainEqual({rating_id:energy.id,status:'cancelled'});expect(states).toContainEqual({rating_id:food.id,status:'sent'});
   });

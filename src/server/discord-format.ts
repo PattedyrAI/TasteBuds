@@ -17,6 +17,13 @@ export function decryptWebhook(value:string,key:string){
   const decipher=createDecipheriv('aes-256-gcm',keyBuffer(key),iv);decipher.setAuthTag(tag);
   return validateWebhook(Buffer.concat([decipher.update(data),decipher.final()]).toString('utf8'));
 }
-export function makeRatingEmbed(r:{itemName:string;displayName:string;score:number;note?:string|null;itemId:string},origin:string){
-  return {allowed_mentions:{parse:[]},embeds:[{title:`${r.itemName.slice(0,180)} · ${r.score}/10`,description:(r.note||'').slice(0,1500),color:0x3157d5,footer:{text:`Rated by ${r.displayName.slice(0,100)} on TasteBuds`},url:`${origin}/app?item=${encodeURIComponent(r.itemId)}`}]};
+export function makeRatingEmbed(r:{itemName:string;displayName:string;score:number;note?:string|null;itemId:string;photoFilename?:string;category?:string},origin:string){
+  const url=`${origin}/app?item=${encodeURIComponent(r.itemId)}`;
+  return {allowed_mentions:{parse:[]},embeds:[{
+    author:{name:r.category?`TasteBuds · ${r.category}`:'TasteBuds'},
+    title:r.itemName.slice(0,180),description:(r.note||'').slice(0,1500),color:0x3157d5,
+    fields:[{name:'TASTE SCORE',value:`${r.score} / 10`,inline:true},{name:'REVIEWED BY',value:r.displayName.slice(0,100)||'TasteBuds member',inline:true}],
+    ...(r.photoFilename?{image:{url:`attachment://${r.photoFilename}`}}:{}),
+    footer:{text:`Rated by ${r.displayName.slice(0,100)} on TasteBuds`},url,
+  }],components:[{type:1,components:[{type:2,style:5,label:'Open TasteBuds',url}]}]};
 }

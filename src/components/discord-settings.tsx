@@ -41,7 +41,7 @@ export function DiscordSettings({group,changed}:{group:GroupDetail;changed:()=>v
   const connections=group.discordConnections??[];
   const routes:DiscordRoute[]=connections.some(connection=>connection.route==='all')?['all','energy_drinks','food']:['energy_drinks','food'];
   return <div><div className="settings-section"><h2>Bring the conversation to Discord</h2>
-    <p>Send new reviews to separate channels. Existing reviews won’t be posted.</p>
+    <p>Send new reviews with their cover photo, score, note and a link back to TasteBuds. Existing reviews won’t be posted.</p>
     <small className="muted">In Discord, open each channel’s Settings → Integrations → Webhooks. Paste its URL into the matching connection below. URLs are stored encrypted and are never shown again.</small>
   </div>{routes.map(route=>{
     const connection=connections.find(connection=>connection.route===route);
