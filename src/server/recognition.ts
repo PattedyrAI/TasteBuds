@@ -7,6 +7,28 @@ import {normalizeSuggestion,recognitionPrompt,recognitionJsonSchema} from './rec
 import type {RecognitionResult,RecognitionSuggestion} from '@/lib/contracts';
 const PROMPT_VERSION='everrate-2-photo-identity';
 
+function recognitionFailure(error:unknown){
+  if(error instanceof HttpError&&error.status===403)return 'ai_disabled';
+  if(error instanceof Error){
+    if(error.name==='TimeoutError'||error.name==='AbortError')return 'provider_timeout';
+    if(/^(provider_[1-5]\d{2}|not_configured|unrecognised|invalid_model)$/.test(error.message))return error.message;
+    if(error instanceof SyntaxError||error.name==='ZodError')return 'invalid_response';
+  }
+  return 'recognition_failed';
+}
+function recognitionFailureMessage(failure:string){
+  const fallback=' Your photo is still attached. Fill in the details manually and save your rating.';
+  switch(failure){
+    case 'provider_402':return 'AI suggestions are unavailable because the AI service needs a billing top-up.'+fallback;
+    case 'provider_429':return 'AI suggestions are temporarily rate-limited. Try again later.'+fallback;
+    case 'provider_timeout':return 'AI suggestions took too long. Try again later.'+fallback;
+    case 'provider_401':case 'provider_403':case 'provider_404':case 'not_configured':case 'invalid_model':
+      return 'AI suggestions are unavailable due to a service configuration problem.'+fallback;
+    case 'unrecognised':return 'AI could not identify this photo.'+fallback;
+    default:return 'AI suggestions are temporarily unavailable. Try again later.'+fallback;
+  }
+}
+
 export async function detectImage(data:Buffer,mimeType:string){
   if(!process.env.GEMINI_API_KEY)throw new Error('not_configured');
   const model=process.env.GEMINI_MODEL||'gemini-3.1-flash-lite';
@@ -45,13 +67,16 @@ export async function recognize(userId:string,photoId:string):Promise<Recognitio
   if(!reservation.cached&&!reservation.id)return {status:'failed',suggestion:null,matches:[],message:'This photo is already being read. Wait a moment, or fill in the details yourself.'};
   let suggestion=reservation.cached;
   if(!suggestion){
+    const started=Date.now();
     try {await requireAiEnabled(userId);const result=await detectImage(photo.data,photo.mime_type);suggestion=result.suggestion;
       await query("UPDATE everrate.recognition_jobs SET status='completed',result=$2,input_tokens=$3,output_tokens=$4,completed_at=now() WHERE id=$1",[reservation.id,suggestion,result.inputTokens,result.outputTokens]);
     }catch(error){
-      const failure=error instanceof Error&&/^provider_\d+$|not_configured|unrecognised|invalid_model$/.test(error.message)?error.message:'recognition_failed';
-      await query("UPDATE everrate.recognition_jobs SET status='failed',failure_class=$2,completed_at=now() WHERE id=$1",[reservation.id,error instanceof HttpError&&error.status===403?'ai_disabled':failure]);
+      const failure=recognitionFailure(error);
+      // Only fixed codes and job correlation; never log photos, keys or provider response bodies.
+      console.warn('Photo recognition failed',{jobId:reservation.id,model:/^gemini-[a-z0-9.-]{1,80}$/.test(model)?model:'invalid_model',failureClass:failure,durationMs:Date.now()-started});
+      await query("UPDATE everrate.recognition_jobs SET status='failed',failure_class=$2,completed_at=now() WHERE id=$1",[reservation.id,failure]);
       if(error instanceof HttpError&&error.status===403)throw error;
-      return {status:'failed',suggestion:null,matches:[],message:'We could not identify this photo. Fill in what you know and save your rating.'};
+      return {status:'failed',suggestion:null,matches:[],message:recognitionFailureMessage(failure)};
     }
   }
   const matches=await findItemMatches(userId,photo.group_id,suggestion);
