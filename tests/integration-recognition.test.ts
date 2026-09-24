@@ -41,6 +41,17 @@ describe.skipIf(!url)('photo and recognition boundaries',()=>{
   it('rejects non-image bytes and unsupported content masquerading as a JPG',async()=>{
     for(const input of [Buffer.from('not a photo'),Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="red"/></svg>')])await expect(uploadPhoto(user,group,input)).rejects.toMatchObject({status:400});
   });
+  it('stores a 48-megapixel phone JPG as a small photo without EXIF metadata',async()=>{
+    const jpeg=await sharp({create:{width:8064,height:6048,channels:3,background:'#ccbbaa'}}).jpeg().withMetadata().toBuffer();
+    const body=await readImageBody(new Request('https://example.test/api/photos',{method:'POST',headers:{'Content-Type':'image/jpeg'},body:new Uint8Array(jpeg)}));
+    const uploaded=await uploadPhoto(user,group,body),stored=await getPhoto(user,uploaded.id);
+    expect(uploaded).toMatchObject({mimeType:'image/jpeg',width:1600,height:1200});
+    expect((await sharp(stored.data).metadata()).exif).toBeUndefined();
+  });
+  it('explains when a photo exceeds the supported pixel limit',async()=>{
+    const jpeg=await sharp({create:{width:8100,height:8100,channels:3,background:'blue'}}).jpeg().toBuffer();
+    await expect(uploadPhoto(user,group,jpeg)).rejects.toMatchObject({status:400,message:'This photo is over 64 megapixels. Export a smaller copy and try again.'});
+  });
   it('reserves a single in-flight provider call and caches successful results',async()=>{
     let release!:(value:Response)=>void;let entered!:()=>void;const started=new Promise<void>(resolve=>entered=resolve);
     const fetchMock=vi.fn(()=>{entered();return new Promise<Response>(resolve=>release=resolve);});vi.stubGlobal('fetch',fetchMock);

@@ -5,6 +5,8 @@ import {connectDiscord} from '@/server/discord';
 import {readJsonBody} from '@/server/request-body';
 import {findItemMatches} from '@/server/item-matches';
 import type {ItemFilters} from '@/lib/contracts';
+import {getRestaurantMap} from '@/server/services/restaurants';
+import {createCategory,updateCategory,getMapsConfiguration} from '@/server/services/categories';
 async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}){
   return api(request,async userId=>{
     const p=(await params).path,method=request.method;
@@ -18,6 +20,10 @@ async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}
     }
     if(p.join('/')==='groups/join'&&method==='POST')return service.joinGroup(userId,body as {code:string});
     if(p[0]==='groups'&&p[1]){
+      if(p.length===3&&p[2]==='maps-config'&&method==='GET')return getMapsConfiguration(userId,p[1]);
+      if(p.length===3&&p[2]==='categories'&&method==='POST')return createCategory(userId,p[1],body);
+      if(p.length===4&&p[2]==='categories'&&method==='PATCH')return updateCategory(userId,p[1],p[3],body);
+      if(p.length===3&&p[2]==='restaurants'&&method==='GET')return getRestaurantMap(userId,p[1],new URL(request.url).searchParams.get('categoryId')||undefined);
       if(p.length===2&&method==='GET')return service.getGroup(userId,p[1]);
       if(p.length===2&&method==='PATCH')return service.updateGroup(userId,p[1],body);
       if(p.length===3&&p[2]==='invite'&&method==='POST')return service.rotateInvite(userId,p[1]);

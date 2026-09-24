@@ -1,3 +1,5 @@
+import {isPlatformAdmin} from '../platform-admin';
+import {ratingPhotoColumns} from './rating-photos';
 import {z} from 'zod';
 import {ratingStatusColumns} from './rating-status';
 import {transaction} from '../db';
@@ -38,7 +40,7 @@ export async function getPersonRatings(userId:string,groupId:string,personId:str
     // Counts and page use one statement snapshot. The group share lock also keeps
     // membership removal from racing this authorization check.
     const result=await db.query(`WITH history AS (
-      SELECT ${ratingStatusColumns},r.id,r.item_id,r.score,r.note,r.photo_id,r.tasted_at,r.created_at,r.legacy_photo_missing,
+      SELECT ${ratingPhotoColumns},${ratingStatusColumns},r.id,r.item_id,r.score,r.note,r.photo_id,r.tasted_at,r.created_at,r.legacy_photo_missing,
         i.name AS item_name,b.name AS brand,i.variant
       FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id
       LEFT JOIN everrate.brands b ON b.id=i.brand_id
@@ -48,16 +50,21 @@ export async function getPersonRatings(userId:string,groupId:string,personId:str
         SELECT * FROM history WHERE $3::timestamptz IS NULL OR (tasted_at,created_at,id)<($3::timestamptz,$4::timestamptz,$5::uuid)
         ORDER BY tasted_at DESC,created_at DESC,id DESC LIMIT $6
       ) p),'[]'::jsonb) AS ratings
-      FROM everrate.memberships m JOIN everrate.users u ON u.id=m.user_id
+      FROM (
+        SELECT group_id,user_id,role,joined_at FROM everrate.memberships WHERE group_id=$1 AND user_id=$2
+        UNION ALL
+        SELECT $1::uuid,u.id,'admin',u.created_at FROM everrate.users u
+        WHERE u.id=$2 AND $7::boolean AND NOT EXISTS(SELECT 1 FROM everrate.memberships WHERE group_id=$1 AND user_id=$2)
+      ) m JOIN everrate.users u ON u.id=m.user_id
       CROSS JOIN (SELECT count(*) AS rating_count,count(DISTINCT item_id) AS item_count,max(tasted_at) AS last_rated_at FROM history) s
-      WHERE m.group_id=$1 AND m.user_id=$2`,[groupId,personId,cursor?.tastedAt??null,cursor?.createdAt??null,cursor?.id??null,limit+1]);
+      WHERE m.group_id=$1 AND m.user_id=$2`,[groupId,personId,cursor?.tastedAt??null,cursor?.createdAt??null,cursor?.id??null,limit+1,userId===personId&&isPlatformAdmin(userId)]);
     if(!result.rowCount)throw new ServiceError(404,'Person not found in this group');
-    type Row={is_rereview:boolean;counts_toward_average:boolean;id:string;item_id:string;item_name:string;brand:string|null;variant:string|null;score:number;note:string|null;photo_id:string|null;tasted_at:string;created_at:string;legacy_photo_missing:boolean};
+    type Row={photo_ids:string[];is_rereview:boolean;counts_toward_average:boolean;id:string;item_id:string;item_name:string;brand:string|null;variant:string|null;score:number;note:string|null;photo_id:string|null;tasted_at:string;created_at:string;legacy_photo_missing:boolean};
     const rows=result.rows[0].ratings as Row[],page=rows.slice(0,limit),last=page.at(-1);
     // JSON timestamps retain PostgreSQL microseconds; converting through Date
     // would truncate the ordering boundary and could skip repeated tastings.
     const nextCursor=rows.length>limit&&last?Buffer.from(JSON.stringify({tastedAt:last.tasted_at,createdAt:last.created_at,id:last.id})).toString('base64url'):null;
-    const ratings:PersonRating[]=page.map(r=>({isRereview:r.is_rereview,countsTowardAverage:r.counts_toward_average,id:r.id,itemId:r.item_id,itemName:r.item_name,brand:r.brand,variant:r.variant,score:Number(r.score),note:r.note,photoId:r.photo_id,tastedAt:r.tasted_at,legacyPhotoMissing:r.legacy_photo_missing}));
+    const ratings:PersonRating[]=page.map(r=>({isRereview:r.is_rereview,countsTowardAverage:r.counts_toward_average,id:r.id,itemId:r.item_id,itemName:r.item_name,brand:r.brand,variant:r.variant,score:Number(r.score),note:r.note,photoId:r.photo_id,photoIds:r.photo_ids,tastedAt:r.tasted_at,legacyPhotoMissing:r.legacy_photo_missing}));
     return {person:result.rows[0].person as Person,ratings,nextCursor};
   });
 }

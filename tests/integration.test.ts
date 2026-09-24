@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import * as service from '../src/server/service';
+import {createCategory} from '../src/server/services/categories';
 import { getPool } from '../src/server/db';
 const photoCache=new Map<string,Promise<string>>();
 async function testPhoto(userId:string,groupId:string):Promise<string>{
@@ -190,6 +191,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect((await service.getGroup(users[0],g.id)).stats.activeMembers).toBe(1);
   });
   it('corrects item metadata only for creator or owner without merging item histories', async () => {
+    await createCategory(users[0],groupId,{name:'Old type',fields:[]});
     const original = await createWithPhoto(users[1],{groupId,name:'Original',brand:'Old brand',variant:'Old variant',type:'Old type',broadCategory:'Old broad',score:7});
     const target = await createWithPhoto(users[0],{groupId,name:'Corrected',brand:'New brand',variant:'New variant',type:'New type',score:8});
     await expect(service.updateItem(users[2],original.itemId,{name:'Leaked'})).rejects.toMatchObject({status:404});

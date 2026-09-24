@@ -1,7 +1,10 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {ReviewPhotos,reviewPhotoIds} from './review-photos';
+import {ReviewConversation} from './review-conversation';
 import {RatingStatus} from './rating-status';
 import {BrandLabel} from './brand-label';
+import {ReviewFieldValues} from './review-fields';
 import {CategoryPicker} from './category-picker';
 import {SaveItemButton} from './discovery-actions';
 import {Plus,Trash2,Pencil,Repeat2} from 'lucide-react';
@@ -10,9 +13,9 @@ import {Avatar,Modal,Photo,Score,request,date} from './ui';
 
 export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rereview,categories}:{id:string;user:User;owner:boolean;close:()=>void;rate:(item:Detail)=>void;edit:(rating:Rating,item:Detail)=>void;changed:()=>void;person?:(id:string)=>void;rereview:(rating:Rating,item:Detail)=>void;categories:string[]}){
   const [item,setItem]=useState<Detail|null>(null),[error,setError]=useState('');
-  const [comments,setComments]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[deleting,setDeleting]=useState<string|null>(null);
+  const [busy,setBusy]=useState(false),[deleting,setDeleting]=useState<string|null>(null);
   const [metadataCategory,setMetadataCategory]=useState('');
-  const [editItem,setEditItem]=useState(false),[editComment,setEditComment]=useState<{id:string;body:string}|null>(null);
+  const [editItem,setEditItem]=useState(false);
   const load=()=>request<Detail>(`/api/items/${id}`).then(setItem).catch(e=>setError(e.message));
   useEffect(()=>{void load();},[id]);
   async function run(work:()=>Promise<unknown>){
@@ -44,17 +47,12 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
       <h3>Every tasting</h3>{item.ratings.length===0&&<p className="muted">No ratings yet. Be the first to try it.</p>}
       {item.ratings.map(r=><article className="tasting" key={r.id}>
         <header><Avatar name={r.author.displayName} url={r.author.avatarUrl}/><div><strong>{person?<button className="text-button" onClick={()=>person(r.author.id)}>{r.author.displayName}</button>:r.author.displayName}</strong><small>{date(r.tastedAt)}</small></div><Score value={r.score}/></header><RatingStatus rating={r}/>
+        <ReviewFieldValues fields={r.categoryFields||[]} values={r.customFields||{}}/>
         {r.note&&<p className="note">{r.note}</p>}
-        {r.photoId?<Photo id={r.photoId} name={`Photo from ${r.author.displayName}'s tasting`} className="tasting-photo"/>:r.legacyPhotoMissing&&<small className="muted">Historical rating · original photo unavailable</small>}
+        {r.photoId?<ReviewPhotos ids={reviewPhotoIds(r)} name={`Photos from ${r.author.displayName}'s tasting`}/>:r.legacyPhotoMissing&&<small className="muted">Historical rating · original photo unavailable</small>}
         <div className="tasting-actions">{r.author.id===user.id&&<button className="text-button" onClick={()=>rereview(r,item)}><Repeat2 size={13}/> Rereview</button>}{r.author.id===user.id&&<button className="text-button" onClick={()=>edit(r,item)}><Pencil size={13}/> Edit</button>}{(r.author.id===user.id||owner)&&<button className="text-button danger" onClick={()=>setDeleting(r.id)}><Trash2 size={13}/> Delete</button>}</div>
         {deleting===r.id&&<div className="inline-confirm"><span>Remove this rating from the group?</span><button disabled={busy} onClick={()=>void run(()=>request(`/api/ratings/${r.id}`,'DELETE'))}>Remove</button><button onClick={()=>setDeleting(null)}>Keep it</button></div>}
-        {r.comments.map(c=><div className="comment" key={c.id}><strong>{c.author.displayName}</strong>
-          {editComment?.id===c.id?<form className="comment-form" onSubmit={e=>{e.preventDefault();void run(async()=>{await request(`/api/comments/${c.id}`,'PATCH',{body:editComment.body});setEditComment(null);});}}>
-            <input aria-label="Edit comment" required maxLength={3000} value={editComment.body} onChange={e=>setEditComment({id:c.id,body:e.target.value})}/><button disabled={busy||!editComment.body.trim()}>Save</button><button type="button" onClick={()=>setEditComment(null)}>Cancel</button>
-          </form>:<><span>{c.body}</span>{c.author.id===user.id&&<button aria-label="Edit your comment" onClick={()=>setEditComment({id:c.id,body:c.body})}><Pencil size={13}/></button>}{(c.author.id===user.id||owner)&&<button aria-label={`Delete comment by ${c.author.displayName}`} onClick={()=>setDeleting(`comment:${c.id}`)}>×</button>}</>}
-          {deleting===`comment:${c.id}`&&<div className="inline-confirm"><span>Delete this comment?</span><button disabled={busy} onClick={()=>void run(()=>request(`/api/comments/${c.id}`,'DELETE'))}>Delete</button><button onClick={()=>setDeleting(null)}>Keep it</button></div>}
-        </div>)}
-        <form className="comment-form" onSubmit={e=>{e.preventDefault();void run(async()=>{await request(`/api/ratings/${r.id}/comments`,'POST',{body:comments[r.id]});setComments(v=>({...v,[r.id]:''}));});}}><input aria-label={`Comment on ${r.author.displayName}'s rating`} placeholder="Add a thought…" value={comments[r.id]||''} maxLength={3000} onChange={e=>setComments(v=>({...v,[r.id]:e.target.value}))}/><button disabled={busy||!comments[r.id]?.trim()}>Post</button></form>
+        <ReviewConversation ratingId={r.id} comments={r.comments} user={user} owner={owner} person={person} onChange={comments=>{setItem(current=>current?{...current,ratings:current.ratings.map(rating=>rating.id===r.id?{...rating,comments}:rating)}:current);}}/>
       </article>)}
     </div>}
   </Modal>;

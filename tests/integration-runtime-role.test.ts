@@ -36,6 +36,9 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
       await tx.query(`GRANT USAGE ON SCHEMA everrate TO ${runtimeRole}`);
       for(const table of mutable)await tx.query(`GRANT SELECT,INSERT,UPDATE ON everrate.${table} TO ${runtimeRole}`);
       await tx.query(`GRANT SELECT ON everrate.legacy_aliases TO ${runtimeRole}`);
+      await tx.query(`GRANT SELECT,INSERT,DELETE ON everrate.rating_photos TO ${runtimeRole}`);
+    await tx.query(`GRANT SELECT,INSERT,DELETE ON everrate.restaurant_places TO ${runtimeRole}`);
+    await tx.query(`GRANT SELECT,INSERT,UPDATE ON everrate.google_places_usage TO ${runtimeRole}`);
       await tx.query(`GRANT DELETE ON everrate.memberships TO ${runtimeRole}`);
       await tx.query(`GRANT INSERT ON everrate.rating_revisions,everrate.audit_events TO ${runtimeRole}`);
       await tx.query('COMMIT');
@@ -53,7 +56,7 @@ describe.skipIf(!fixtureUrl)('real application CRUD through restricted everrate_
       const tx=await admin.connect();
       try{
         await tx.query('BEGIN');
-        for(const table of ['audit_events','discord_outbox','discord_connections','comments','saved_items'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
+        for(const table of ['rating_photos','audit_events','discord_outbox','discord_connections','comments','saved_items'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
         await tx.query('DELETE FROM everrate.rating_revisions WHERE rating_id IN (SELECT id FROM everrate.ratings WHERE group_id=ANY($1::uuid[]))',[groups]);
         for(const table of ['ratings','recognition_jobs','items','photos','brands','item_types','memberships'])await tx.query(`DELETE FROM everrate.${table} WHERE group_id=ANY($1::uuid[])`,[groups]);
         await tx.query('DELETE FROM everrate.groups WHERE id=ANY($1::uuid[])',[groups]);

@@ -282,3 +282,36 @@ The photo picker explicitly offers `.jpg` and `.jpeg` files. Upload requests now
 Regression tests reproduced the previous rejection of valid JPEG bytes before implementation. Verification passed: 197 unit tests, five targeted real-PostgreSQL photo/recognition tests, TypeScript/build and 26 desktop/mobile browser checks. Database tests decode, store and retrieve progressive JPEGs under standard, alias, missing and generic types, and reject unsupported disguised content. Browser checks cover `.jpg`, `.JPG`, `.jpeg` picker support, empty file metadata, preview/save availability and retrying the same file. These used disposable local databases and synthetic browser fixtures. Independent security/correctness review approved the fix. No database migration was required.
 
 Release `bc5a5c8357ca367237f2eb2d9f1d0bafa08ec93c` reached Railway `SUCCESS` as `abf09d39-f70b-459c-af53-4b0f2ced209f`. All nine public launch checks passed against the exact release marker at `2026-09-16T08:46:15.695Z`. No production photo or rating was created during verification.
+
+## 2026-09-16: JPG fra kameraer med 48 megapiksler
+
+Den tidligere grensen på 40 millioner piksler avviste gyldige JPG-bilder på 8064 × 6048 piksler, selv når filen var mindre enn 10 MiB. Grensen er nå 64 millioner piksler. Bilder over grensen får en konkret feilmelding; annen dekodingsfeil anbefaler å eksportere en ny JPEG eller PNG. Logging inneholder bare en fast årsakskategori og byteantall. Filstørrelse, medlemskontroll, dagskvote, formatkontroll, metadatafjerning og nedskalering til 1600 piksler beholdes.
+
+To nye tester feilet før endringen og passerte etterpå. Verifisering: 197 enhetstester, sju integrasjonstester mot midlertidig lokal PostgreSQL, typesjekk og produksjonsbygg. Uavhengig kodegjennomgang godkjente endringen. Ingen databasemigrering var nødvendig.
+
+Kildecommit `fbbbc6c3f57c5981084fd009c51ec31aaa5acbc1` nådde Railway `SUCCESS` som utrulling `0b1d0c44-f1db-42c7-b053-ee69649f5ea6`. Alle ni offentlige kontroller passerte mot riktig versjonsmarkør klokken 13:16 UTC. En ekte Safari-økt avviste testfilen `48mp.jpg` før utrullingen og godtok nøyaktig samme fil etterpå: HTTP 200 klokken 13:16:46 UTC og «Photo attached» i skjemaet. Testen lagret ett ubundet testbilde; ingen vurdering ble opprettet.
+
+Brukerens konkrete fil på omtrent 6,48 MB er ikke tilgjengelig for kontroll, så det er ennå ikke bekreftet at den traff pikselgrensen. GitHub-push var blokkert av utløpt innlogging for PattedyrAI; kildecommiten er lagret lokalt og ble publisert direkte gjennom den fungerende Railway-innloggingen.
+
+## 2026-09-16: flere bilder per vurdering
+
+Flerbildefunksjonen ble publisert separat fra pågående kartarbeid. Kildecommit `0ac4b8feffeb8cc988954774f091c770d993daea` nådde Railway `SUCCESS` som `d5efb9ca-c0dc-4f81-9e8a-cba0a71366d7`. Alle ni offentlige kontroller passerte mot denne versjonsmarkøren klokken 13:46 UTC.
+
+Migrering `008_review_photos.sql` ble gjennomført før apputrullingen. Den oppretter en tom koblingstabell for ekstrabilder og begrensede serverrettigheter. Før/etter-kontroll bekreftet uendrede eksisterende radantall og identiske bruker-, produkt- og vurderingshashverdier. Tilgang for nettleserrollene er sperret. Midlertidig SSH-nøkkel ble tilbakekalt og lokale nøkkel-/passordfiler fjernet. Privat kvittering: `.private/gallery-migration-3kjbzdau`. Migrering 007 og kartkoden inngår ikke i denne utgivelsen.
+
+Verifisering av den isolerte utgivelsen: 82 integrasjonstester på en ny PostgreSQL-instans med kun migreringene 001–006 og 008, 167 enhetstester, typesjekk og produksjonsbygg. Sikkerhetsgjennomgangen godkjente endelig commit. Lokal mobiltest ved 320/390 px bekreftet flervalg, to kolonner på smale skjermer, 44 px knapper, forsidebytte, fjerning, delvis feil, bildegrenser, gjenbruk og forstørret galleri. I produksjon viste en innlogget Safari-økt to vellykket opplastede JPG-bilder i samme skjema, med separate fjernknapper og forsidevalg. Skjemaet ble lukket uten å publisere noen vurdering; to ubundne opplastede bilder ble lagret. Lagring av selve flerbildevurderingen ble verifisert mot lokal PostgreSQL.
+
+GitHub-push er fortsatt blokkert av utilgjengelig PattedyrAI-innlogging. Kildecommiten finnes lokalt, og Railway ble oppdatert direkte gjennom den fungerende Railway-innloggingen. Funksjonsbeskrivelse og datakontrakt: `docs/REVIEW-PHOTOS.md`.
+
+
+## 2026-09-16: kategorimaler, filtrering og Google-kart
+
+Brukeren godkjente publisering av hele kartfunksjonen. Kildecommit `75b22783c9cd80bbd6aefe88aa9ba8fbe4ed7435` ble publisert som Railway `b63cc485-2e6c-4be2-923e-96e5b6603891` med terminal status `SUCCESS`. Alle ni offentlige produksjonskontroller besto mot samme versjonsmarkør klokken 14:14 UTC. Opplastingen inneholdt 98 tillatte kilde-/konfigurasjonsfiler, totalt 625 848 byte; private filer og miljøkonfigurasjon inngikk ikke.
+
+Migrering `007_restaurant_maps.sql` ble lagt til etter allerede publisert 008. Privat kvittering og sikkerhetskopi av skjema/berørte rader ligger i `.private/maps-migration-uejmds9u`. Migreringen tok avgrensede tabellåser og sammenlignet innholdet i eksisterende kategorier og vurderinger før commit. Alle tidligere felt var uendret. Runtime-rettigheter ble kontrollert enkeltvis, og nettleserrollene mangler tilgang til karttabellene. Midlertidig SSH-nøkkel ble tilbakekalt og lokale nøkkel-/passordfiler slettet. Ingen import eller historikkendring inngikk.
+
+Separate Google-nøkler, eget JavaScript-vektorkart og `GOOGLE_PLACES_DAILY_LIMIT=100` er satt i webtjenestens produksjonsvariabler. Google Cloud-kvoter for kartinnlastinger og hver av UI Kit sine tre daglige forespørselstyper er satt til 100. Nøklene er avgrenset til nødvendige API-er; nettlesernøkkelen har domeneavgrensning. Se [Google Maps-oppsettet](GOOGLE-MAPS.md) for detaljer og verifikasjonsgrenser.
+
+Verifisering før publisering: 209 enhetstester bestått, 78 miljøavhengige hoppet over; 91 databaseintegrasjonstester bestått uten hopp; typesjekk og produksjonsbygg bestått. Kategori-/kartkoden og migreringsskriptet fikk uavhengig godkjenning. Ekte Google-søk, serveroppslag og kartmarkør var verifisert lokalt; ingen virkelig gruppe fikk en syntetisk testvurdering under produksjonskontrollen. Innlogget app lastet etter utrullingen, men lagring og gjenåpning av en hel Google-tilknyttet vurdering er ikke verifisert i produksjon.
+
+GitHub-push ble avvist med 403 for aktiv konto Pattedyret. Kildecommiten finnes lokalt og er publisert direkte til Railway. Ved rollback kan forrige apprelease gjenopprettes uten å fjerne de additive databasefeltene; bevar nye vurderingsdata og ikke rull tilbake migreringen med sletting.
