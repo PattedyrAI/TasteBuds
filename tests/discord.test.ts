@@ -13,4 +13,11 @@ describe('Discord secrets and payloads',()=>{
     const payload=makeRatingEmbed({itemName:'@everyone',displayName:'Someone',score:8,note:'@here',itemId:'item'},'https://example.com');
     expect(payload.allowed_mentions).toEqual({parse:[]});
   });
+  it('includes a native app button and an attached photo without a public photo URL',()=>{
+    const payload=makeRatingEmbed({itemName:'Burger',displayName:'Reviewer',score:9,itemId:'item/1',photoFilename:'review.png'},'https://example.com');
+    expect(payload.embeds[0]).toMatchObject({image:{url:'attachment://review.png'}});
+    expect(payload.embeds[0].fields[0]).toEqual({name:'TASTE SCORE',value:'9 / 10',inline:true});
+    expect(payload.components).toEqual([{type:1,components:[{type:2,style:5,label:'Open TasteBuds',url:'https://example.com/app?item=item%2F1'}]}]);
+    expect(JSON.stringify(payload)).not.toContain('/api/photos/');
+  });
 });

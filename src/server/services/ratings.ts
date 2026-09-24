@@ -38,6 +38,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
   const prepared=preparation.prepared!;
   if(prepared.placeId&&!prepared.existingPlaceId)await verifyRatingLocation(prepared.placeId);
   return transaction(async db=> {
+    await db.query('SELECT id FROM everrate.groups WHERE id=$1 FOR UPDATE',[value.groupId]);
     await requireMembership(db,userId,value.groupId);
     // Only joining by posting changes membership; reading as admin stays read-only.
     if(isPlatformAdmin(userId))await db.query("INSERT INTO everrate.memberships(group_id,user_id,role) VALUES($1,$2,'member') ON CONFLICT DO NOTHING",[value.groupId,userId]);
@@ -78,9 +79,9 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     await db.query('UPDATE everrate.ratings SET custom_fields=$1,category_fields=$2 WHERE id=$3',[JSON.stringify(template.values),JSON.stringify(template.fields),result.rows[0].id]);
     await replaceExtraPhotos(db,value.groupId,result.rows[0].id,photoIds);
     const rating = await getRatingRecord(db,result.rows[0].id);
-    await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,payload)
-      SELECT r.group_id,r.id,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
-      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled WHERE r.id=$1`,[rating.id]);
+    await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,route,payload)
+      SELECT r.group_id,r.id,d.route,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
+      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled AND (d.route='all' OR i.type_id=ANY(d.category_ids)) WHERE r.id=$1 AND r.source='app'`,[rating.id]);
     return rating;
   });
 }

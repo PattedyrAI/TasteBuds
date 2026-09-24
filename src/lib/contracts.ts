@@ -9,7 +9,9 @@ export interface PersonRatingsPage { person: Person; ratings: PersonRating[]; ne
 export interface CategoryField { id: string; label: string; type: 'text'|'number'|'price'|'select'|'boolean'|'location'; required: boolean; filterable: boolean; options?: string[] }
 export type CustomFields = Record<string,string|number|boolean>;
 export interface Category { id: string; name: string; fields: CategoryField[] }
-export interface GroupDetail extends Group { categories?: Category[]; inviteCode: string | null; members: Member[]; discordConnected: boolean; stats: { itemCount: number; tastingCount: number; activeMembers: number } }
+export type DiscordRoute = 'all' | 'energy_drinks' | 'food';
+export interface DiscordConnection {route: DiscordRoute; enabled: boolean; categoryIds: string[]}
+export interface GroupDetail extends Group { categories?: Category[]; inviteCode: string | null; members: Member[]; discordConnected: boolean; discordConnections?: DiscordConnection[]; stats: { itemCount: number; tastingCount: number; activeMembers: number } }
 export interface Bootstrap { user: User; groups: Group[] }
 export interface Item { customFields?: CustomFields; categoryFields?: CategoryField[]; placeId?: string | null;  myScore?: number | null; saved?: boolean; reviewers?: Pick<User, 'id' | 'displayName' | 'avatarUrl'>[]; id: string; groupId: string; createdBy: string; name: string; brand: string | null; variant: string | null; type: string | null; broadCategory: string | null; photoId: string | null; average: number | null; raterCount: number; tastingCount: number; lastRatedAt: string | null }
 export interface Comment { id: string; ratingId: string; author: User; body: string; createdAt: string }

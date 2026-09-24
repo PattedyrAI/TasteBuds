@@ -25,3 +25,9 @@ Kommentarer har profilbilder, egne navn- og tidslinjer, meldingsbobler, en separ
 - Uavhengig sikkerhets- og UI-gjennomgang har ingen gjenstående funn.
 
 Ingen migrering eller omskriving av eksisterende brukere, medlemmer eller vurderinger er nødvendig. Produksjonskontrollen opprettet ingen testvurdering eller kommentar.
+
+## Publisering
+
+Kildecommit `85cb5ae187fe6aa4ea2a2698e142e2326816e5e5` nådde Railway `SUCCESS` som `27d322b2-b194-4e57-a574-54f903e78b76`. Alle ni offentlige lanseringskontroller bestod mot denne versjonsmarkøren klokken 14:46 UTC. `PLATFORM_ADMIN_USER_ID` ble satt til den verifiserte kanoniske kontoen og lest tilbake. Bare denne nøkkelen og `APP_RELEASE` ble endret; sammenligning bekreftet at alle andre variabler var uendret. Ingen migrering ble kjørt.
+
+Innlogget produksjonsflyt ble ikke kjørt i denne publiseringen. Nettleserhandlingene ble testet lokalt med syntetiske API-svar; databasetilgangen ble testet mot en separat lokal PostgreSQL-instans. GitHub-innloggingens tidligere rapporterte feil er fortsatt uavklart; koden er lagret lokalt og publisert direkte til Railway.

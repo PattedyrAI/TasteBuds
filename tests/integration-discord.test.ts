@@ -59,18 +59,18 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
       return Response.json({});
     }));
     await processDiscordOutbox();
-    expect(destinations).toEqual([oldWebhook+'?wait=true', newWebhook+'?wait=true', newWebhook+'?wait=true']);
+    expect(destinations).toEqual([oldWebhook+'?wait=true&with_components=true', newWebhook+'?wait=true&with_components=true', newWebhook+'?wait=true&with_components=true']);
   });
 
   it('skips a later claimed rating deleted during the first delivery', async () => {
     const titles: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
-      titles.push(JSON.parse(String(init?.body)).embeds[0].title);
+      titles.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)).embeds[0].title);
       if (titles.length === 1) await deleteRating(ownerId, ratingIds[1]);
       return Response.json({});
     }));
     await processDiscordOutbox();
-    expect(titles).toEqual(['Queued 0 · 7/10', 'Queued 2 · 7/10']);
+    expect(titles).toEqual(['Queued 0', 'Queued 2']);
     expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1', [ratingIds[1]])).rows[0].status).toBe('cancelled');
   });
 
