@@ -191,3 +191,4 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 @media(prefers-reduced-motion:reduce){.conversation-input-wrap{transition:none}}
 .select-option.is-pinned{position:sticky;top:0;z-index:1;background:#fcf0f5;color:var(--pink);font-weight:700;border-bottom:1px solid #efd8e2;box-shadow:0 3px 8px #30202b08}
 .select-option.is-pinned.is-active{background:#f7dce8}
+.lookup-field{display:flex;flex-direction:column;gap:8px;min-width:0}.lookup-chips{display:flex;flex-wrap:wrap;gap:6px}.lookup-chips button{border:1px solid #cbd8f5;background:#f5f8ff;color:var(--blue);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;min-height:32px}.lookup-chips button:hover{border-color:var(--blue)}
