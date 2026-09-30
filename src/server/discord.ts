@@ -46,10 +46,10 @@ export async function processDiscordOutbox(){
   for(const row of claimed){
     // Recheck each entry after earlier sends: a disconnect, rotation, deletion or
     // replacement worker may have invalidated the original batch claim.
-    const current=await query<{webhook_encrypted:string;route:string;photo_id:string|null;photo_data:Buffer|null;photo_mime:string|null;payload:{itemName:string;authorName:string;score:number;note?:string|null;itemId:string}}>(
-      "SELECT o.payload,c.webhook_encrypted,c.route,r.photo_id,p.data AS photo_data,p.mime_type AS photo_mime FROM everrate.discord_outbox o JOIN everrate.discord_connections c USING(group_id,route) JOIN everrate.ratings r ON r.id=o.rating_id AND r.group_id=o.group_id JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id LEFT JOIN everrate.photos p ON p.id=r.photo_id AND p.group_id=o.group_id WHERE o.id=$1 AND o.status='processing' AND o.attempts=$2 AND c.enabled=true AND r.deleted_at IS NULL AND r.source='app' AND (c.route='all' OR i.type_id=ANY(c.category_ids))",[row.id,row.attempts]);
+    const current=await query<{webhook_encrypted:string;route:string;photo_id:string|null;photo_data:Buffer|null;photo_mime:string|null;created_at:Date;payload:{itemName:string;brand?:string|null;variant?:string|null;authorName:string;score:number;note?:string|null;itemId:string;groupName?:string|null}}>(
+      "SELECT o.payload,o.created_at,c.webhook_encrypted,c.route,r.photo_id,p.data AS photo_data,p.mime_type AS photo_mime FROM everrate.discord_outbox o JOIN everrate.discord_connections c USING(group_id,route) JOIN everrate.ratings r ON r.id=o.rating_id AND r.group_id=o.group_id JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id LEFT JOIN everrate.photos p ON p.id=r.photo_id AND p.group_id=o.group_id WHERE o.id=$1 AND o.status='processing' AND o.attempts=$2 AND c.enabled=true AND r.deleted_at IS NULL AND r.source='app' AND (c.route='all' OR i.type_id=ANY(c.category_ids))",[row.id,row.attempts]);
     if(!current.rowCount){await query("UPDATE everrate.discord_outbox SET status='cancelled' WHERE id=$1 AND status='processing' AND attempts=$2",[row.id,row.attempts]);continue;}
-    const {webhook_encrypted,payload,route,photo_id,photo_data,photo_mime}=current.rows[0];
+    const {webhook_encrypted,payload,created_at,route,photo_id,photo_data,photo_mime}=current.rows[0];
     let retry=30,status='failed';
     try {
       const url=decryptWebhook(webhook_encrypted,process.env.DISCORD_ENCRYPTION_KEY||'');
@@ -57,7 +57,7 @@ export async function processDiscordOutbox(){
       const extension=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'} as Record<string,string>)[photo_mime||''];
       if(photo_id&&(!photo_data?.length||!extension||photo_data.length>10*1024*1024))throw new Error('Review photo unavailable');
       const photoFilename=photo_data?`review.${extension}`:undefined;
-      const message=makeRatingEmbed({...payload,displayName:payload.authorName,photoFilename,category:route==='energy_drinks'?'Energy-drink review':route==='food'?'Food review':undefined},process.env.APP_URL!);
+      const message=makeRatingEmbed({...payload,displayName:payload.authorName,photoFilename,ratedAt:created_at?.toISOString(),category:route==='energy_drinks'?'Energy-drink review':route==='food'?'Food review':undefined},process.env.APP_URL!);
       let body:string|FormData=JSON.stringify(message);
       if(photo_data&&photoFilename){
         const form=new FormData();

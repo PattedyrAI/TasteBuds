@@ -34,7 +34,7 @@ describe.skipIf(!url)('Discord category destinations',()=>{
       const form=init.body instanceof FormData?init.body:undefined;
       const body=JSON.parse(String(form?form.get('payload_json'):init.body));
       const file=form?.get('files[0]') as File|undefined;
-      if(body.embeds[0].footer.text===`Rated by ${ownerName} on TasteBuds`)posted.push({target:String(target),body,photo:file?await file.text():undefined,mime:file?.type});
+      if(body.embeds[0].author.name.split(' · ')[0]===ownerName)posted.push({target:String(target),body,photo:file?await file.text():undefined,mime:file?.type});
       return Response.json({});
     }));
     const group=await createGroup(owner,{name:'Routing '+randomUUID()});groupId=group.id;
@@ -61,7 +61,7 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     for(const post of posted){
       expect(post.photo).toBe('photo');expect(post.mime).toBe('image/png');
       expect(post.body.embeds[0].image?.url).toBe('attachment://review.png');
-      expect(post.body.components[0].components[0]).toMatchObject({label:'Open TasteBuds',url:post.body.embeds[0].url});
+      expect(post.body.components[0].components[0]).toMatchObject({label:'Open in TasteBuds',url:post.body.embeds[0].url});
       expect(JSON.stringify(post.body)).not.toContain('/api/photos/');
     }
     expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE group_id=$1',[groupId])).rows).toEqual([{status:'sent'},{status:'sent'}]);

@@ -17,13 +17,26 @@ export function decryptWebhook(value:string,key:string){
   const decipher=createDecipheriv('aes-256-gcm',keyBuffer(key),iv);decipher.setAuthTag(tag);
   return validateWebhook(Buffer.concat([decipher.update(data),decipher.final()]).toString('utf8'));
 }
-export function makeRatingEmbed(r:{itemName:string;displayName:string;score:number;note?:string|null;itemId:string;photoFilename?:string;category?:string},origin:string){
+type RatingEmbedInput={itemName:string;brand?:string|null;variant?:string|null;displayName:string;score:number;note?:string|null;itemId:string;photoFilename?:string;category?:string;groupName?:string|null;ratedAt?:string|null};
+// The sidebar colour carries the verdict so a channel can be skimmed by score.
+function scoreColor(score:number){return score>=8?0x2fb466:score>=5?0xe8a33d:0xe5484d;}
+function scoreBar(score:number){const filled=Math.max(0,Math.min(10,Math.round(score)));return (score>=8?'🟩':score>=5?'🟧':'🟥').repeat(filled)+'⬛'.repeat(10-filled);}
+export function makeRatingEmbed(r:RatingEmbedInput,origin:string){
   const url=`${origin}/app?item=${encodeURIComponent(r.itemId)}`;
+  const reviewer=r.displayName.slice(0,100)||'TasteBuds member';
+  const brand=r.brand?.trim();
+  // Items store the model without its brand, so "Original" alone reads as nothing.
+  const name=brand&&!r.itemName.toLowerCase().startsWith(brand.toLowerCase())?`${brand} ${r.itemName}`:r.itemName;
+  const title=(r.variant?.trim()?`${name} · ${r.variant.trim()}`:name).slice(0,200);
+  const note=(r.note||'').trim().slice(0,1500);
+  const date=r.ratedAt?new Date(r.ratedAt):null;
   return {allowed_mentions:{parse:[]},embeds:[{
-    author:{name:r.category?`TasteBuds · ${r.category}`:'TasteBuds'},
-    title:r.itemName.slice(0,180),description:(r.note||'').slice(0,1500),color:0x3157d5,
-    fields:[{name:'TASTE SCORE',value:`${r.score} / 10`,inline:true},{name:'REVIEWED BY',value:r.displayName.slice(0,100)||'TasteBuds member',inline:true}],
+    author:{name:r.category?`${reviewer} · ${r.category}`:reviewer},
+    title,url,color:scoreColor(r.score),
+    ...(note?{description:note.split('\n').map(line=>`> ${line}`).join('\n')}:{}),
+    fields:[{name:'Score',value:`**${r.score} / 10**\n${scoreBar(r.score)}`,inline:false}],
     ...(r.photoFilename?{image:{url:`attachment://${r.photoFilename}`}}:{}),
-    footer:{text:`Rated by ${r.displayName.slice(0,100)} on TasteBuds`},url,
-  }],components:[{type:1,components:[{type:2,style:5,label:'Open TasteBuds',url}]}]};
+    footer:{text:r.groupName?`TasteBuds · ${r.groupName.slice(0,100)}`:'TasteBuds'},
+    ...(date&&!Number.isNaN(date.getTime())?{timestamp:date.toISOString()}:{}),
+  }],components:[{type:1,components:[{type:2,style:5,label:'Open in TasteBuds',url}]}]};
 }
