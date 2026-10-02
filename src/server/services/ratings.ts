@@ -9,6 +9,7 @@ import { transaction, type Db } from '../db';
 import { audit, lookupLabel, lookupCategory, parse, requireMembership, ServiceError, userColumns, validId } from './common';
 import { comment, getRatingRecord } from './items';
 import {ratingTemplate,verifyRatingLocation,persistRatingLocation,parseTemplateValues} from './rating-location';
+import {discordItemMatchesRoute} from '../discord-routing';
 export async function createRating(userId: string, input: CreateRatingInput): Promise<Rating> {
   validId(userId); const value = parse(createRatingSchema,input);
   const photoIds=value.photoIds??[value.photoId];
@@ -83,7 +84,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     const rating = await getRatingRecord(db,result.rows[0].id);
     await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,route,payload)
       SELECT r.group_id,r.id,d.route,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'variant',i.variant,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
-      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled AND (d.route='all' OR i.type_id=ANY(d.category_ids)) WHERE r.id=$1 AND r.source='app'`,[rating.id]);
+      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled AND ${discordItemMatchesRoute} WHERE r.id=$1 AND r.source='app'`,[rating.id]);
     return rating;
   });
 }

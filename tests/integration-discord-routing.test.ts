@@ -66,6 +66,27 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     }
     expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE group_id=$1',[groupId])).rows).toEqual([{status:'sent'},{status:'sent'}]);
   });
+  it('shares a generic Food review without requiring a specific dish category',async()=>{
+    await connect('energy_drinks',[energyId]);await connect('food',[foodId]);
+    const rating=await createRating(owner,{brand:'Fixture cantine',groupId,name:'Lunch',broadCategory:'Food',photoId,score:8,idempotencyKey:randomUUID()});
+    const queued=(await getPool().query('SELECT route,status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows;
+    expect(queued).toEqual([{route:'food',status:'pending'}]);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:00Z' WHERE rating_id=$1",[rating.id]);
+    await processDiscordOutbox();
+    expect(posted).toHaveLength(1);expect(posted[0].target).toBe(foodHook+'?wait=true&with_components=true');
+  });
+  it('shares explicit Food in a new dish category without editing the channel category list',async()=>{
+    await connect('food',[foodId]);await createCategory(owner,groupId,{name:'Cantine meals'});
+    const rating=await createRating(owner,{brand:'Fixture cantine',groupId,name:'Meatballs',type:'Cantine meals',broadCategory:'Food',photoId,score:8,idempotencyKey:randomUUID()});
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{route:'food'}]);
+  });
+  it('rechecks the broad category before sending an already queued review',async()=>{
+    await connect('food',[foodId]);const rating=await rate('Pizza');
+    await getPool().query("UPDATE everrate.items SET broad_category='Drink' WHERE id=$1",[rating.itemId]);
+    await processDiscordOutbox();
+    expect(posted).toEqual([]);
+    expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{status:'cancelled'}]);
+  });
   it('rejects overlapping categories and an all-reviews destination alongside specific routes',async()=>{
     await connect('energy_drinks',[energyId]);
     await expect(connect('food',[energyId])).rejects.toMatchObject({status:409});
@@ -119,9 +140,16 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     await rate('Energy drinks');
     expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE group_id=$1',[groupId])).rows).toHaveLength(1);
   });
-  it('rejects unknown routes and enabled specific routes without categories',async()=>{
+  it('enables Food without legacy category selections',async()=>{
+    await connect('food',[]);
+    const rating=await createRating(owner,{brand:'Fixture cantine',groupId,name:'Lunch',broadCategory:'Food',photoId,score:8,idempotencyKey:randomUUID()});
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{route:'food'}]);
+    await connectDiscord(owner,groupId,{route:'food',enabled:false});await connect('food',[]);
+    expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{status:'cancelled'}]);
+  });
+  it('rejects unknown routes and enabled energy routes without categories',async()=>{
     await expect(connect('unknown',[foodId])).rejects.toBeDefined();
-    await expect(connect('food',[])).rejects.toMatchObject({status:400});
+    await expect(connect('energy_drinks',[])).rejects.toMatchObject({status:400});
     expect((await getPool().query('SELECT 1 FROM everrate.discord_connections WHERE group_id=$1',[groupId])).rowCount).toBe(0);
   });
 });

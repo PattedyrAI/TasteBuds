@@ -21,8 +21,8 @@ function ConnectionForm({groupId,route,connection,categories,changed}:{groupId:s
     <h3>{labels[route]}</h3>
     <p>{connection?(connection.enabled?'Connected and sharing new reviews.':'Connection saved. Sharing is off.'):'No channel connected.'}</p>
     {route==='all'?<p>This existing connection includes every category. Turn it off before enabling separate channels.</p>:<>
-      <p>Choose every category that belongs in this channel. New or unselected categories are not shared.</p>
-      <details><summary>Choose categories ({selected.length} selected)</summary>
+      <p>{route==='food'?'Reviews marked Food are shared automatically. No detailed type is needed.':'Choose the types to share in this channel.'}</p>
+      <details><summary>{route==='food'?'Legacy category matching':'Choose categories'} ({selected.length} selected)</summary>
         {categories.map(category=><label className="checkbox" key={category.id}>
           <input type="checkbox" checked={selected.includes(category.id)} disabled={busy} onChange={event=>setSelected(event.target.checked?[...selected,category.id]:selected.filter(id=>id!==category.id))}/>{category.name}
         </label>)}
