@@ -195,8 +195,8 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 /* TKT-0146 cards: photo, maker, name, then a 0–10 gauge per person. Brand marks stay same-origin; the name is always text. */
 .brand-label{display:inline-flex;align-items:center;gap:.5em;max-width:100%;padding:0;border:0;background:transparent;color:#34425a;font-size:13px;font-weight:700;letter-spacing:0;line-height:1.3;text-align:left;font-family:inherit}
 .brand-name{min-width:0;overflow-wrap:anywhere}
-.brand-logo{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:2em;height:2em;border-radius:.5em;background:#fff;border:1px solid var(--line);overflow:hidden}
-.brand-logo img{width:100%;height:100%;object-fit:contain;padding:.2em;display:block}
+.brand-logo{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:32px;height:32px;border-radius:8px;background:#fff;border:1px solid var(--line);overflow:hidden}
+.brand-logo img{width:100%;height:100%;object-fit:contain;padding:2px;display:block}
 .brand-logo.monogram{background:var(--category-bg,#edf0f5);border-color:var(--category-line,#c8d0dd);color:var(--category-ink,#49576e);font-size:.85em;font-weight:800}
 .brand-link{min-height:44px;margin-block:-4px;border-radius:8px}
 .brand-link:hover{background:transparent;text-decoration:none}
@@ -207,24 +207,18 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 .item-card .card-title h2{font-size:16px;margin:0}
 .item-card .card-title p{margin:4px 0 0}
 .card-scores{display:flex;flex-direction:column;gap:12px;margin-top:16px}
-.score-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:8px;row-gap:8px;min-height:44px;font-size:13px;color:var(--muted)}
-.score-row-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.score-row.mine .score-row-label{color:var(--ink)}
-.score-row-value{font-size:20px;font-weight:750;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
-.score-row-value small{font-size:12px;font-weight:500;color:var(--muted);margin-left:2px;letter-spacing:0}
-.score-row.friend .score-row-value{font-weight:650;color:#34425a}
-.score-track{grid-column:1/-1;position:relative;height:8px;border-radius:999px;background:#eceff4;overflow:hidden}
-.score-track:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),#fff calc(10% - 2px) 10%)}
-.score-fill{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:var(--category-ink,#49576e)}
-.score-row.friend .score-fill{background:#8b97ac}
-.score-row.is-empty,.score-row.is-loading,.score-row.is-error{align-items:center;grid-template-columns:1fr}
-.score-row.is-empty .score-row-label{font-weight:500;white-space:normal}
-.score-row.is-error .score-row-label{color:#a3223f;white-space:normal}
-.score-track.pending{background:linear-gradient(90deg,#eceff4 0 40%,#f6f7fa 50%,#eceff4 60% 100%) 0 0/250% 100%;animation:score-pending 1.2s linear infinite}
-@keyframes score-pending{to{background-position:-250% 0}}
+.score-row{--score-color:#543c69;--score-tint:#e4d5f2;position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:16px;border-radius:16px;overflow:hidden;background:#f5f1f8;color:var(--score-color);font-size:14px}
+.score-row-label{position:relative;z-index:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.score-row-value{position:relative;z-index:1;flex-shrink:0;font-size:28px;font-weight:750;letter-spacing:-.02em;color:inherit;font-variant-numeric:tabular-nums;line-height:1}
+.score-row-value small{font-size:13px;font-weight:500;margin-left:3px;letter-spacing:0}
+.score-fill{position:absolute;z-index:0;inset:0 auto 0 0;background:var(--score-tint);border-right:2px solid color-mix(in srgb,var(--score-color) 25%,transparent)}
+.score-row.friend{--score-color:#245865;--score-tint:#c9e9ed;background:#eff8f9}
+.score-row.is-empty,.score-row.is-loading{background:#f7f5f9;color:#666171}
+.score-row.is-empty .score-row-label,.score-row.is-error .score-row-label{white-space:normal}
+.score-row.is-error{background:#fceef1;color:#982443}
 .item-card .card-body footer{margin-top:auto;padding-top:12px;border-top:1px solid #edf0f5}
 .item-card .card-scores{margin-bottom:16px}
-.item-card.personal-perfect .score-row.mine .score-fill{background:#a77510}
+.item-card.personal-perfect .score-row.mine{--score-color:#805708;--score-tint:#f8e5ac;background:#fff7e4}
 .friend-compare{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:0 0 16px}
 .friend-compare>.select-menu{width:240px;flex-shrink:0}
 .friend-compare-status{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
@@ -236,10 +230,9 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
  .item-card .card-title h2{font-size:14px}
  .card-scores{gap:8px;margin-top:12px}
  .item-card .card-scores{margin-bottom:12px}
- .score-row{font-size:12px;min-height:40px;row-gap:6px}
- .score-row-value{font-size:16px}
- .score-row-value small{font-size:10px}
- .score-track{height:6px}
+ .score-row{font-size:13px;min-height:60px;padding:14px 16px;gap:12px}
+ .score-row-value{font-size:26px}
+ .score-row-value small{font-size:12px}
  .friend-compare>.select-menu{width:100%}
  .friend-compare{gap:8px}
 }

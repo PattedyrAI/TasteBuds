@@ -55,6 +55,7 @@ const logos: Record<string, string> = {
   "Oreo": "/brands/oreo.png",
   "Paris Baguette": "/brands/paris-baguette.png",
   "Prime": "/brands/prime.png",
+  "Pringles": "/brands/pringles.png",
   "Raptor": "/brands/raptor.png",
   "Red Bull": "/brands/red-bull.png",
   "Reign": "/brands/reign.png",

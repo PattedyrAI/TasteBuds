@@ -10,6 +10,7 @@ import {CategoryPicker} from './category-picker';
 import {CategoryTemplate} from './category-template';
 import {ReviewFields} from './review-fields';
 import {validateCustomFields} from '../domain/category-template';
+import {normalizeReviewIdentity} from '../domain/brand-identity';
 import {broadReviewKind,kindForType,reviewKinds,typesForKind} from '../domain/review-categories';
 import {canonicalItemType} from '../domain/item-types';
 import {ratingDateValue,ratingTimestamp} from '@/lib/rating-date';
@@ -33,7 +34,8 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   useEffect(()=>()=>uploadController.current?.abort(),[]);
   // Energy drinks are looked up brand first, then that brand's models; Variant only says whether it is sugar-free.
   const energy=isEnergyDrinkCategory(type),locked=!!itemId||!!editing||!!busy;
-  const brandChoices=energy&&!locked?energyDrinkBrands(items,brand):[],modelChoices=energy&&!locked?energyDrinkModels(items,brand,name):[];
+  const resolvedIdentity=normalizeReviewIdentity({name,brand,type});
+  const brandChoices=energy&&!locked?energyDrinkBrands(items,brand):[],modelChoices=energy&&!locked?energyDrinkModels(items,resolvedIdentity.brand||brand,resolvedIdentity.name||name).filter(candidate=>candidate.brand?.trim()):[];
   const choose=(v:Item)=>{draft.current={name,brand,variant,type,broad,extraValues};setBroad(v.broadCategory||'');setItemId(v.id);setName(v.name);setBrand(v.brand||'');setVariant(v.variant||'');setType(v.type||'');setLinkedItem(v);setExtraValues({});setMatches([]);setHint('Linked to the existing item. Your rating will join its history.');};
   useEffect(()=>{
     if(itemId||editing||energy||name.trim().length<2){setMatches([]);return;}
@@ -112,7 +114,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     {matches.length>0&&<div className="match-list"><strong>Already in your group?</strong>{matches.map(m=><button type="button" key={m.id} disabled={!!busy} onClick={()=>choose(m)}><span>{m.name}<small>{[m.brand,m.type,m.variant].filter(Boolean).join(' · ')||'Brand unknown'}</small></span><Check size={18}/></button>)}<span className="muted">Or use the details below to add a new item.</span></div>}
     <div className="lookup-field"><label>{energy?'Brand':'Brand / Restaurant'}<input required maxLength={120} value={brand} disabled={locked} onChange={e=>setBrand(e.target.value)} placeholder={energy?'Search brands, e.g. Monster':'Add brand or restaurant'}/></label>
       {brandChoices.length>0&&<div className="lookup-chips" role="group" aria-label="Energy drink brands in your group">{brandChoices.map(b=><button type="button" key={b} onClick={()=>{setBrand(b);modelInput.current?.focus();}}>{b}</button>)}</div>}</div>
-    <div className="lookup-field"><label>{energy?'Model / Flavour':'Model'}<input ref={modelInput} required maxLength={160} value={name} disabled={locked} onChange={e=>setName(e.target.value)} placeholder={energy?(brand.trim()?`Search ${brand.trim()} models`:'Ultra White, Mango Loco…'):'What is it?'}/></label>
+    <div className="lookup-field"><label>{energy?'Model / Flavour':'Model'}<input ref={modelInput} required maxLength={160} value={name} onBlur={()=>{if(!locked){setName(resolvedIdentity.name||name);setBrand(resolvedIdentity.brand||brand);}}} disabled={locked} onChange={e=>setName(e.target.value)} placeholder={energy?(brand.trim()?`Search ${brand.trim()} models`:'Ultra White, Mango Loco…'):'What is it?'}/></label>
       {modelChoices.length>0&&<div className="match-list"><strong>Already rated from {brand.trim()}</strong>{modelChoices.map(m=><button type="button" key={m.id} onClick={()=>choose(m)}><span>{m.name}{m.variant&&<small>{isSugarfree(m.variant)?'Sugarfree':m.variant}</small>}</span><Check size={18}/></button>)}<span className="muted">Or type a new model to add it.</span></div>}</div>
 
     {!editing&&itemId&&!brand.trim()&&<p className="error" role="alert">This item needs a brand before another review. Ask a group manager to update it.</p>}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {normalizeReviewIdentity} from './brand-identity';
 import {broadReviewKind,kindForType} from './review-categories';
 import {customFieldsSchema} from './category-template';
 export const idSchema = z.uuid();
@@ -8,7 +9,7 @@ const dateSchema = z.string().datetime({ offset: true }).refine(value => Date.pa
 const scoreSchema=z.number().finite().min(1).max(10).multipleOf(0.1,'Use at most one decimal place.');
 const photoIdsSchema=z.array(idSchema).min(1,'Add at least one photo.').max(5,'Add up to 5 photos.').refine(ids=>new Set(ids).size===ids.length,'Each photo can only appear once.');
 const consistentCover=(value:{photoId?:string;photoIds?:string[]})=>!value.photoIds||!value.photoId||value.photoIds[0]===value.photoId;
-export const createRatingSchema = z.object({
+const ratingInputSchema = z.object({
   customFields: customFieldsSchema.optional(),
   groupId: idSchema, itemId: idSchema.optional(), rereviewOf: idSchema.optional(), name: nameSchema.optional(), brand: nullableText,
   variant: nullableText, type: nullableText, broadCategory: nullableText.transform(value=>broadReviewKind(value)||value),
@@ -16,6 +17,12 @@ export const createRatingSchema = z.object({
   tastedAt: dateSchema.optional(), photoId: idSchema, photoIds:photoIdsSchema.optional(),
   idempotencyKey: z.string().min(8).max(200).optional(),
 }).refine(value=>!!value.itemId||!broadReviewKind(value.broadCategory)||!kindForType(value.type)||broadReviewKind(value.broadCategory)===kindForType(value.type),{message:'Choose a type that matches Food, Drink or Other.',path:['type']}).refine(value => Boolean(value.itemId || value.brand), {message:'Enter a brand before saving your rating.',path:['brand']}).refine(consistentCover,'The cover must be the first photo.').refine(value => Boolean(value.itemId || value.name), 'Choose an item or enter a name').refine(value => !value.rereviewOf || Boolean(value.itemId), 'A rereview requires an existing item');
+export const createRatingSchema = z.preprocess(value=>{
+  if(!value||typeof value!=='object'||Array.isArray(value))return value;
+  const input=value as Record<string,unknown>;
+  if(input.itemId||typeof input.name!=='string'||(input.brand!=null&&typeof input.brand!=='string')||(input.type!=null&&typeof input.type!=='string'))return value;
+  return normalizeReviewIdentity(input as {name:string;brand?:string|null;type?:string|null});
+},ratingInputSchema);
 export const updateRatingSchema = z.object({ customFields: customFieldsSchema.optional(), score: scoreSchema.optional(), note: z.string().trim().max(5000).nullable().optional(), tastedAt: dateSchema.optional(), photoId: idSchema.optional(), photoIds:photoIdsSchema.optional() }).refine(consistentCover,'The cover must be the first photo.').refine(value => Object.keys(value).length > 0, 'Nothing to update');
 export const groupPatchSchema = z.object({ name: nameSchema.optional(), ownerId: idSchema.optional(), leave: z.boolean().optional() }).refine(value => !(value.leave && (value.name || value.ownerId)), 'Leave must be a separate operation');
 
