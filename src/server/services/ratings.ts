@@ -66,7 +66,9 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     if(template.placeId!==prepared.placeId)throw new ServiceError(409,'Kategorimalen ble endret. Åpne vurderingen på nytt.');
     let itemId = value.itemId;
     if (itemId) {
-      if (!(await db.query('SELECT id FROM everrate.items WHERE id=$1 AND group_id=$2',[itemId,value.groupId])).rowCount) throw new ServiceError(404,'Item not found');
+      const existing=await db.query<{brand:string|null}>('SELECT b.name AS brand FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id AND b.group_id=i.group_id WHERE i.id=$1 AND i.group_id=$2 FOR SHARE OF i',[itemId,value.groupId]);
+      if (!existing.rowCount) throw new ServiceError(404,'Item not found');
+      if (!existing.rows[0].brand?.trim()) throw new ServiceError(400,'This item needs a brand before another review. Ask a group manager to update it.');
     } else {
       const brandId = await lookupLabel(db,'brands',value.groupId,value.brand);
       const typeId = await lookupCategory(db,userId,value.groupId,value.type);

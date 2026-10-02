@@ -15,7 +15,7 @@ const ownerName='Route owner '+owner;
 let groupId:string,photoId:string,energyId:string,foodId:string;
 let posted:{target:string;body:{embeds:{url:string;image?:{url:string}}[];components:{components:{url:string;label:string}[]}[]};photo?:string;mime?:string}[];
 const rate=async(type:string)=>{
-  const rating=await createRating(owner,{groupId,name:type+' '+randomUUID(),type,photoId,score:8,idempotencyKey:randomUUID()});
+  const rating=await createRating(owner,{brand:'Fixture brand',groupId,name:type+' '+randomUUID(),type,photoId,score:8,idempotencyKey:randomUUID()});
   // The worker is global and bounded. Put only our fixtures first without
   // changing or clearing other integration suites' queued work.
   await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:00Z' WHERE rating_id=$1",[rating.id]);

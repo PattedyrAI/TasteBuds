@@ -19,7 +19,7 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
   });
   afterAll(async()=>{await getPool().end();});
   it('persists private idempotent saves, retains deleted-only saved items, and rejects outsiders',async()=>{
-    const rating=await service.createRating(owner,{groupId,name:'Saved tea',score:6,photoId});
+    const rating=await service.createRating(owner,{brand:'Fixture brand',groupId,name:'Saved tea',score:6,photoId});
     expect(await service.saveItem(friend,rating.itemId,true)).toEqual({saved:true});
     expect(await service.saveItem(friend,rating.itemId,true)).toEqual({saved:true});
     expect((await getPool().query('SELECT count(*)::int n FROM everrate.saved_items WHERE item_id=$1',[rating.itemId])).rows[0].n).toBe(1);
@@ -35,7 +35,7 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
     await expect(getPool().query('INSERT INTO everrate.saved_items(group_id,item_id,user_id) VALUES($1,$2,$3)',[otherGroup,rating.itemId,owner])).rejects.toMatchObject({code:'23503'});
   });
   it('selects personal latest score deterministically and falls back after deletion across list/get/update',async()=>{
-    const a=await service.createRating(owner,{groupId,name:'Timeline',score:3,photoId,tastedAt:'2025-01-01T00:00:00Z'});
+    const a=await service.createRating(owner,{brand:'Fixture brand',groupId,name:'Timeline',score:3,photoId,tastedAt:'2025-01-01T00:00:00Z'});
     const b=await service.createRating(owner,{groupId,itemId:a.itemId,score:9,photoId,tastedAt:'2025-01-02T00:00:00Z'});
     const c=await service.createRating(owner,{groupId,itemId:a.itemId,score:1,photoId,tastedAt:'2024-01-01T00:00:00Z'});
     expect((await service.listItems(owner,groupId)).find(i=>i.id===a.itemId)?.myScore).toBe(9);
@@ -46,7 +46,7 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
     expect((await service.getItem(owner,a.itemId)).myScore).toBe([a,c].sort((x,y)=>y.id.localeCompare(x.id))[0].score);
   });
   it('allows exact imported source photo only for its canonical author and keeps original history',async()=>{
-    const original=await service.createRating(owner,{groupId,name:'Imported ownership',score:4,photoId,tastedAt:'2024-01-01T00:00:00Z'});
+    const original=await service.createRating(owner,{brand:'Fixture brand',groupId,name:'Imported ownership',score:4,photoId,tastedAt:'2024-01-01T00:00:00Z'});
     await getPool().query('UPDATE everrate.ratings SET user_id=$1 WHERE id=$2',[friend,original.id]);
     const input={groupId,itemId:original.itemId,rereviewOf:original.id,score:8,photoId,idempotencyKey:randomUUID()};
     const repeated=await service.createRating(friend,input);
@@ -59,7 +59,7 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
     await expect(service.createRating(friend,{...input,itemId:randomUUID(),idempotencyKey:undefined})).rejects.toMatchObject({status:404});
     await expect(service.createRating(owner,{...input,groupId:otherGroup,idempotencyKey:undefined})).rejects.toMatchObject({status:404});
     expect((await service.createRating(friend,{...input,photoId:friendPhoto,idempotencyKey:undefined})).photoId).toBe(friendPhoto);
-    const noPhoto=await service.createRating(friend,{groupId,name:'Missing legacy photo',score:5,photoId:friendPhoto});
+    const noPhoto=await service.createRating(friend,{brand:'Fixture brand',groupId,name:'Missing legacy photo',score:5,photoId:friendPhoto});
     await getPool().query("UPDATE everrate.ratings SET photo_id=null,legacy_photo_missing=true,source='import' WHERE id=$1",[noPhoto.id]);
     await expect(service.createRating(friend,{...input,rereviewOf:noPhoto.id,itemId:noPhoto.itemId,idempotencyKey:undefined})).rejects.toMatchObject({status:404});
     const replacement=await service.createRating(friend,{...input,rereviewOf:noPhoto.id,itemId:noPhoto.itemId,photoId:friendPhoto,idempotencyKey:undefined});

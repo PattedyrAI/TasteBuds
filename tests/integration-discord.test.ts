@@ -27,7 +27,7 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
     const photo = await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/png',1,1) RETURNING id", [groupId, ownerId, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'base64'), 'a'.repeat(64)]);
     ratingIds = [];
     for (let n = 0; n < 3; n++) {
-      const rating = await createRating(ownerId, {groupId, name: 'Queued '+n, score: 7, photoId: photo.rows[0].id, idempotencyKey: randomUUID()});
+      const rating = await createRating(ownerId, {brand:'Fixture brand',groupId, name: 'Queued '+n, score: 7, photoId: photo.rows[0].id, idempotencyKey: randomUUID()});
       ratingIds.push(rating.id);
       // Put this test's three entries before other suites' pending work, in order.
       await getPool().query('UPDATE everrate.discord_outbox SET created_at=$1 WHERE rating_id=$2', ['0001-01-01T00:00:0'+n+'Z', rating.id]);
@@ -70,7 +70,7 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
       return Response.json({});
     }));
     await processDiscordOutbox();
-    expect(titles).toEqual(['Queued 0', 'Queued 2']);
+    expect(titles).toEqual(['Fixture brand Queued 0', 'Fixture brand Queued 2']);
     expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1', [ratingIds[1]])).rows[0].status).toBe('cancelled');
   });
 

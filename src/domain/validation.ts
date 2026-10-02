@@ -14,7 +14,7 @@ export const createRatingSchema = z.object({
   score: scoreSchema, note: z.string().trim().max(5000).nullable().optional(),
   tastedAt: dateSchema.optional(), photoId: idSchema, photoIds:photoIdsSchema.optional(),
   idempotencyKey: z.string().min(8).max(200).optional(),
-}).refine(consistentCover,'The cover must be the first photo.').refine(value => Boolean(value.itemId || value.name), 'Choose an item or enter a name').refine(value => !value.rereviewOf || Boolean(value.itemId), 'A rereview requires an existing item');
+}).refine(value => Boolean(value.itemId || value.brand), {message:'Enter a brand before saving your rating.',path:['brand']}).refine(consistentCover,'The cover must be the first photo.').refine(value => Boolean(value.itemId || value.name), 'Choose an item or enter a name').refine(value => !value.rereviewOf || Boolean(value.itemId), 'A rereview requires an existing item');
 export const updateRatingSchema = z.object({ customFields: customFieldsSchema.optional(), score: scoreSchema.optional(), note: z.string().trim().max(5000).nullable().optional(), tastedAt: dateSchema.optional(), photoId: idSchema.optional(), photoIds:photoIdsSchema.optional() }).refine(consistentCover,'The cover must be the first photo.').refine(value => Object.keys(value).length > 0, 'Nothing to update');
 export const groupPatchSchema = z.object({ name: nameSchema.optional(), ownerId: idSchema.optional(), leave: z.boolean().optional() }).refine(value => !(value.leave && (value.name || value.ownerId)), 'Leave must be a separate operation');
 

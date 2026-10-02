@@ -15,7 +15,7 @@ describe.skipIf(!url)('review photo galleries',()=>{
   photos=await Promise.all(Array.from({length:6},()=>photo()));foreign=await photo(member);crossGroup=await photo(owner,otherGroup);
  });
  afterAll(async()=>{await getPool().end();await admin.query(`DROP DATABASE "${database}"`);await admin.end();});
- const input=()=>({groupId:group,name:'Gallery product',score:8,photoId:photos[0],photoIds:photos.slice(0,3)});
+ const input=()=>({brand:'Fixture brand',groupId:group,name:'Gallery product',score:8,photoId:photos[0],photoIds:photos.slice(0,3)});
  it('persists ordered photos across details, feed and personal history',async()=>{
   const r=await createRating(owner,input());expect(r.photoIds).toEqual(photos.slice(0,3));
   expect((await getItem(owner,r.itemId)).ratings[0].photoIds).toEqual(r.photoIds);
@@ -29,7 +29,7 @@ describe.skipIf(!url)('review photo galleries',()=>{
  });
  it('requires one to five distinct photos with a consistent cover',async()=>{
   for(const photoIds of [[],photos,[photos[0],photos[0]],[photos[1]]])await expect(createRating(owner,{...input(),photoIds})).rejects.toMatchObject({status:400});
-  const r=await createRating(owner,{groupId:group,name:'Legacy client',score:7,photoId:photos[0]});expect(r.photoIds).toEqual([photos[0]]);
+  const r=await createRating(owner,{brand:'Fixture brand',groupId:group,name:'Legacy client',score:7,photoId:photos[0]});expect(r.photoIds).toEqual([photos[0]]);
   await expect(updateRating(owner,r.id,{photoIds:[]})).rejects.toMatchObject({status:400});
  });
  it('denies foreign and cross-group attachments and edits by other members',async()=>{

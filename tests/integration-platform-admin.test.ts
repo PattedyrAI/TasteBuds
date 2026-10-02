@@ -33,11 +33,11 @@ describe.skipIf(!url)('one configured platform administrator',()=>{
   const bytes=await sharp({create:{width:4,height:4,channels:3,background:'red'}}).jpeg().toBuffer();
   const otherPhoto=await uploadPhoto(member,groupId,bytes);expect((await getPhoto(admin,otherPhoto.id)).group_id).toBe(groupId);await expect(getPhoto(outsider,otherPhoto.id)).rejects.toMatchObject({status:404});
   const own=await uploadPhoto(admin,groupId,bytes);photoId=own.id;
-  await expect(service.createRating(admin,{groupId,name:'Invalid first tasting',photoId:otherPhoto.id,score:8})).rejects.toMatchObject({status:404});
+  await expect(service.createRating(admin,{brand:'Fixture brand',groupId,name:'Invalid first tasting',photoId:otherPhoto.id,score:8})).rejects.toMatchObject({status:404});
   expect((await getPool().query('SELECT count(*)::int n FROM everrate.memberships WHERE group_id=$1 AND user_id=$2',[groupId,admin])).rows[0].n).toBe(0);
-  const memberRating=await service.createRating(member,{groupId,name:'Member tasting',photoId:otherPhoto.id,score:2});
+  const memberRating=await service.createRating(member,{brand:'Fixture brand',groupId,name:'Member tasting',photoId:otherPhoto.id,score:2});
   await service.updateRating(admin,memberRating.id,{score:3});await service.deleteRating(admin,memberRating.id);
-  const rating=await service.createRating(admin,{groupId,name:'Admin tasting',photoId,score:8});expect(await service.getItem(admin,rating.itemId)).toMatchObject({average:8,raterCount:1});
+  const rating=await service.createRating(admin,{brand:'Fixture brand',groupId,name:'Admin tasting',photoId,score:8});expect(await service.getItem(admin,rating.itemId)).toMatchObject({average:8,raterCount:1});
   const comment=await service.addComment(member,rating.id,{body:'Member comment'});await service.deleteComment(admin,comment.id);await expect(service.deleteRating(member,rating.id)).rejects.toMatchObject({status:403});
   await service.updateRating(admin,rating.id,{score:9});
  });
