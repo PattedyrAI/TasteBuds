@@ -32,11 +32,11 @@ describe.skipIf(!url)('adminstyrte kategorimaler, vurderinger og kart',()=>{
     await expect(updateCategory(member,groupId,categoryId,{name:'Restaurant',fields:[]})).rejects.toMatchObject({status:403});
     await expect(updateCategory(owner,otherGroup,categoryId,{name:'Restaurant',fields:[]})).rejects.toMatchObject({status:404});
     await expect(getRestaurantMap(outsider,groupId)).rejects.toMatchObject({status:404});
-    await expect(service.createRating(outsider,{groupId,name:'Sted',type:'Restaurant',customFields:{location:'outside',cuisine:'Indisk'},score:7,photoId})).rejects.toMatchObject({status:404});
+    await expect(service.createRating(outsider,{brand:'Fixture brand',groupId,name:'Sted',type:'Restaurant',customFields:{location:'outside',cuisine:'Indisk'},score:7,photoId})).rejects.toMatchObject({status:404});
     expect(fetch).not.toHaveBeenCalled();expect(JSON.stringify(await getRestaurantMap(owner,groupId))).not.toContain('server-only');
   });
   it('lagrer felter og sted atomisk og bevarer siste vurdering per person i gruppesnittet',async()=>{
-    placeId=randomUUID();const input={groupId,name:'Vårt navn',type:'Restaurant',customFields:{cuisine:'Italiensk',price:200,location:placeId},score:2,photoId,idempotencyKey:randomUUID(),tastedAt:'2025-01-01T00:00:00Z'};
+    placeId=randomUUID();const input={brand:'Fixture brand',groupId,name:'Vårt navn',type:'Restaurant',customFields:{cuisine:'Italiensk',price:200,location:placeId},score:2,photoId,idempotencyKey:randomUUID(),tastedAt:'2025-01-01T00:00:00Z'};
     const first=await service.createRating(owner,input);itemId=first.itemId;firstRating=first.id;
     expect(first).toMatchObject({customFields:input.customFields,categoryFields:fields});
     expect((await service.createRating(owner,input)).id).toBe(first.id);
@@ -48,8 +48,8 @@ describe.skipIf(!url)('adminstyrte kategorimaler, vurderinger og kart',()=>{
   });
   it('avviser feil felter, manglende obligatoriske verdier og flytting av eksisterende sted',async()=>{
     await createCategory(owner,groupId,{name:'Snacks'});const before=fetch.mock.calls.length;
-    await expect(service.createRating(owner,{groupId,name:'Chips',type:'Snacks',customFields:{location:randomUUID()},score:7,photoId})).rejects.toMatchObject({status:400});
-    await expect(service.createRating(owner,{groupId,name:'Sted',type:'Restaurant',score:7,photoId})).rejects.toMatchObject({status:400});
+    await expect(service.createRating(owner,{brand:'Fixture brand',groupId,name:'Chips',type:'Snacks',customFields:{location:randomUUID()},score:7,photoId})).rejects.toMatchObject({status:400});
+    await expect(service.createRating(owner,{brand:'Fixture brand',groupId,name:'Sted',type:'Restaurant',score:7,photoId})).rejects.toMatchObject({status:400});
     await expect(service.createRating(owner,{groupId,itemId,customFields:{location:randomUUID(),cuisine:'Indisk'},score:7,photoId})).rejects.toMatchObject({status:409});
     await expect(service.createRating(owner,{groupId:otherGroup,itemId,customFields:{location:placeId},score:7,photoId})).rejects.toMatchObject({status:404});
     expect(fetch.mock.calls).toHaveLength(before);
@@ -65,7 +65,7 @@ describe.skipIf(!url)('adminstyrte kategorimaler, vurderinger og kart',()=>{
   it('avgrenser kart og Google-oppslag til den valgte kategorien',async()=>{
     const cafe=await createCategory(owner,groupId,{name:'Kafeer',fields:[fields[2]]});
     const newPlace=randomUUID();
-    const review=await service.createRating(owner,{groupId,name:'Kafebesøk',type:'Kafeer',customFields:{location:newPlace},score:6,photoId});
+    const review=await service.createRating(owner,{brand:'Fixture brand',groupId,name:'Kafebesøk',type:'Kafeer',customFields:{location:newPlace},score:6,photoId});
     const before=fetch.mock.calls.length;
     expect((await getRestaurantMap(owner,groupId,categoryId)).restaurants.map(pin=>pin.item.id)).toEqual([itemId]);
     expect((await getRestaurantMap(owner,groupId,cafe.id)).restaurants.map(pin=>pin.item.id)).toEqual([review.itemId]);
@@ -74,7 +74,7 @@ describe.skipIf(!url)('adminstyrte kategorimaler, vurderinger og kart',()=>{
     await updateCategory(owner,groupId,cafe.id,{name:'Kafeer',fields:[]});
   });
   it('idempotent gjentakelse virker etter malendring og uten nye Google-oppslag',async()=>{
-    const input={groupId,name:'Idempotent eksempel',type:'Restaurant',customFields:{cuisine:'Indisk'},score:7,photoId,idempotencyKey:randomUUID()};
+    const input={brand:'Fixture brand',groupId,name:'Idempotent eksempel',type:'Restaurant',customFields:{cuisine:'Indisk'},score:7,photoId,idempotencyKey:randomUUID()};
     const saved=await service.createRating(owner,input),before=fetch.mock.calls.length;
     await updateCategory(owner,groupId,categoryId,{name:'Restaurant',fields:[]});
     expect((await service.createRating(owner,input)).id).toBe(saved.id);
@@ -83,14 +83,14 @@ describe.skipIf(!url)('adminstyrte kategorimaler, vurderinger og kart',()=>{
   });
   it('stopper Google-kall ved dagsgrensen uten delvis vurdering og tillater valgfritt sted',async()=>{
     vi.stubEnv('GOOGLE_PLACES_DAILY_LIMIT','0');const before=fetch.mock.calls.length;
-    await expect(service.createRating(owner,{groupId,name:'Over grensen',type:'Restaurant',customFields:{location:randomUUID(),cuisine:'Indisk'},score:7,photoId})).rejects.toMatchObject({status:429});
+    await expect(service.createRating(owner,{brand:'Fixture brand',groupId,name:'Over grensen',type:'Restaurant',customFields:{location:randomUUID(),cuisine:'Indisk'},score:7,photoId})).rejects.toMatchObject({status:429});
     expect(fetch.mock.calls).toHaveLength(before);
-    await service.createRating(owner,{groupId,name:'Uten posisjon',type:'Restaurant',customFields:{cuisine:'Indisk'},score:7,photoId});
+    await service.createRating(owner,{brand:'Fixture brand',groupId,name:'Uten posisjon',type:'Restaurant',customFields:{cuisine:'Indisk'},score:7,photoId});
     expect((await getRestaurantMap(owner,groupId)).restaurants).toHaveLength(1);
   });
   it('blokkerer indirekte kategorioppretting fra en vanlig vurdering',async()=>{
     const p=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[groupId,member,Buffer.from('photo'),'b'.repeat(64)])).rows[0].id;
-    await expect(service.createRating(member,{groupId,name:'Forsøk',type:'Ikke opprettet av admin',score:7,photoId:p})).rejects.toMatchObject({status:403});
+    await expect(service.createRating(member,{brand:'Fixture brand',groupId,name:'Forsøk',type:'Ikke opprettet av admin',score:7,photoId:p})).rejects.toMatchObject({status:403});
     expect((await service.getGroup(owner,groupId)).categories?.some(category=>category.name==='Ikke opprettet av admin')).toBe(false);
   });
 });

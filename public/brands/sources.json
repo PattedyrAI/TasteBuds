@@ -1,0 +1,556 @@
+{
+  "schemaVersion": 1,
+  "inventoryCount": 92,
+  "verifiedCount": 75,
+  "assetCount": 74,
+  "sources": {
+    "3D": {
+      "src": "/brands/3d.png",
+      "sourcePage": "https://3denergydrinks.com",
+      "assetUrl": "https://3denergydrinks.com/cdn/shop/files/3denergy_logo_primary_500x.png?v=1781244464",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "AA Drink": {
+      "src": "/brands/aa-drink.png",
+      "sourcePage": "https://aa-drink.com",
+      "assetUrl": "https://aa-drink.com/uploads/settings/2020-12-14-11-21-1241456012.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "dark"
+    },
+    "Adrenaline Rush": {
+      "src": "/brands/adrenaline-rush.png",
+      "sourcePage": "https://m.adrenalinerush.ru/",
+      "assetUrl": "https://m.adrenalinerush.ru/ (inline .menu__logo SVG)",
+      "verification": "Official brand site inline logo visually checked",
+      "background": "dark #101c2d"
+    },
+    "Alani Nu": {
+      "src": "/brands/alani-nu.png",
+      "sourcePage": "https://www.alaninu.com",
+      "assetUrl": "https://www.alaninu.com/cdn/shop/files/Stretch_AN-Website-WBR-Drip-Logo_FPO.png?v=1785979167&width=1107",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Arizona": {
+      "src": "/brands/arizona.png",
+      "sourcePage": "https://drinkarizona.com",
+      "assetUrl": "https://drinkarizona.com/cdn/shop/files/logo-black.svg?v=1721160428&width=160",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Bang": {
+      "src": "/brands/bang.png",
+      "sourcePage": "https://www.prnewswire.com/news-releases/vpx-sportsbang-energy-sues-monster-energy-co-and-reign-beverage-co-for-trademark-infringement-trade-dress-infringement-and-unfair-competition-for-monsters-knockoff-reign-energy-drink-300824161.html",
+      "assetUrl": "https://mma.prnewswire.com/media/845591/BANG_Energy_Logo.jpg?p=publish",
+      "verification": "Brand-issued press release image visually checked; 2019 identity",
+      "background": "original"
+    },
+    "Battery": {
+      "src": "/brands/battery.png",
+      "sourcePage": "https://www.battery.fi",
+      "assetUrl": "https://www.battery.fi/media/vx5dr0sj/battery_logo_updated.png",
+      "verification": "Official Battery site PNG; its standalone gold plus sign cropped without wordmark (no circle in official asset); 32px light/dark preview checked",
+      "background": "transparent"
+    },
+    "Berliner Luft": {
+      "src": "/brands/berliner-luft.png",
+      "sourcePage": "https://schilkin.com/berlinerluft",
+      "assetUrl": "https://backend.schilkin.com/uploads/_/originals//logo-ohne-siegel-berliner-luft-verlauf-1.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Biltema": {
+      "src": "/brands/biltema.png",
+      "sourcePage": "https://www.biltema.no",
+      "assetUrl": "https://www.biltema.no/dist/img/logos/biltema-logo.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Black Rifle": {
+      "src": "/brands/black-rifle.png",
+      "sourcePage": "https://ir.blackriflecoffee.com/news-events/press-releases",
+      "assetUrl": "https://d1io3yog0oux5.cloudfront.net/_0835e9d3988a0630c857bfb12ab007a1/blackriflecoffee/logo.png",
+      "verification": "Official company investor-relations site logo visually checked",
+      "background": "transparent"
+    },
+    "Bloom": {
+      "src": "/brands/bloom.png",
+      "sourcePage": "https://bloomnu.com",
+      "assetUrl": "https://cdn.shopify.com/s/files/1/0143/0952/3556/files/image_9.png?v=1787076769",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "original or transparent"
+    },
+    "Bojangles": {
+      "src": "/brands/bojangles.png",
+      "sourcePage": "https://bojanglesngf.com/",
+      "assetUrl": "https://bojanglesngf.com/wp-content/uploads/2022/01/Bojangles_Shadow_MasterBrandmark_1c_PMS.png",
+      "verification": "Official franchise site master brand mark visually checked",
+      "background": "transparent"
+    },
+    "Bomba": {
+      "src": "/brands/bomba.png",
+      "sourcePage": "https://bomba-energy.com",
+      "assetUrl": "http://bomba-energy.com/bomba/wp-content/uploads/2021/06/logox.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "dark"
+    },
+    "Built": {
+      "src": "/brands/built.png",
+      "sourcePage": "https://built.com",
+      "assetUrl": "https://built.com/cdn/shop/files/wordmark_blue-resized.png?v=1730256796&width=500",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Buldak": {
+      "src": "/brands/buldak.png",
+      "sourcePage": "https://buldak.com",
+      "assetUrl": "https://buldak.com/logo.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Burger King": {
+      "src": "/brands/burger-king.png",
+      "sourcePage": "https://news.bk.com/media-assets/logos-fonts",
+      "assetUrl": "https://cdn.prod.website-files.com/631b4b4e277091ef01450237/635821f727079c639eb64b5d_BK_LOGO_PRIMARY_%E2%94%AC%C2%AB_SU_RGB.png",
+      "verification": "Official Burger King newsroom primary brand logo, trimmed transparent margins and visually checked",
+      "background": "transparent"
+    },
+    "Burn": {
+      "src": "/brands/burn.png",
+      "sourcePage": "https://www.coca-colahellenic.com/en/our-24-7-portfolio/energy",
+      "assetUrl": "https://www.coca-colahellenic.com/content/dam/cch/us/images/our-24-7-portfolio/brand-image/Burn_energy_drink_logo_300x300.png",
+      "verification": "Official distributor lists Burn brand and rendered logo visually checked",
+      "background": "original"
+    },
+    "C4": {
+      "src": "/brands/c4.png",
+      "sourcePage": "https://www.c4energy.com",
+      "assetUrl": "http://cellucor.com/cdn/shop/files/C4OTG_0990_Video_Logos_Powerlifting_BlackLogo_2.png?v=1684342695",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Cabot": {
+      "src": "/brands/cabot.png",
+      "sourcePage": "https://cabotcreamery.com/pages/media-hub",
+      "assetUrl": "https://cabotcreamery.com/pages/media-hub",
+      "extraction": "inline SVG titled Cabot Logo",
+      "verification": "Official Cabot site inline wordmark visually checked",
+      "background": "transparent"
+    },
+    "Cayman Jack": {
+      "src": "/brands/cayman-jack.png",
+      "sourcePage": "https://www.caymanjack.com",
+      "assetUrl": "https://www.caymanjack.com/wp-content/uploads/2026/06/cropped-Cayman-Jack_Global_Website-Redesign_2026_05-V3.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Celsius": {
+      "src": "/brands/celsius.png",
+      "sourcePage": "https://via.tt.se/pressrum/3237004/celsius-sweden-ab/mi?item=logo-3360834",
+      "assetUrl": "https://via.tt.se/data/images/00195/b7d9b4bb-e07b-413c-8f09-d70cb1663ea9.png",
+      "verification": "Celsius Sweden AB pressroom one-color horizontal brand logo visually checked",
+      "background": "transparent"
+    },
+    "Cheetos": {
+      "src": "/brands/cheetos.png",
+      "sourcePage": "https://www.pepsico.com/en/brands/cheetos",
+      "assetUrl": "https://digitalassets.pepsico.com/asset/ec574b24-5500-4942-a13a-fa45ba8e43ce/Presentation-PNG/cheetos-full-offwhite.png",
+      "verification": "PepsiCo brand page asset; logo region cropped from square official image and visually checked",
+      "background": "source off-white"
+    },
+    "Cousins Maine Lobster": {
+      "src": "/brands/cousins-maine-lobster.png",
+      "sourcePage": "https://www.cousinsmainelobster.com",
+      "assetUrl": "https://www.cousinsmainelobster.com/static/ShareLink_LOGO.jpg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "original or transparent"
+    },
+    "Cult": {
+      "src": "/brands/cult.png",
+      "sourcePage": "https://royalunibrew.dk/brands/energi-funktionelle-drikke/cult-energy",
+      "assetUrl": "https://cms.unibrew.com/media/ugjhsuoq/cult-logo2.png",
+      "verification": "Royal Unibrew CULT Energy page brand monogram visually checked",
+      "background": "transparent"
+    },
+    "Devour": {
+      "src": "/brands/devour.png",
+      "sourcePage": "https://www.kraftheinz.com/devour/products",
+      "assetUrl": "https://cdn.allotta.io/image/upload/v1710697327/Logo-Alt_d9smso.png",
+      "verification": "Kraft Heinz Devour page logo visually checked",
+      "background": "original"
+    },
+    "Dunkin'": {
+      "src": "/brands/dunkin.png",
+      "sourcePage": "https://news.dunkindonuts.com/news/releases-20180925",
+      "assetUrl": "https://iprsoftwaremedia.com/285/files/20188/5ba992132cfac274d415096a_25_Dunkin_Before_After/25_Dunkin_Before_After_c4885e75-fe56-4add-aab3-a51120689229-prv.jpg",
+      "extraction": "crop of After logo in official brand identity announcement",
+      "verification": "Official 2018 Dunkin branding announcement and image visually checked",
+      "background": "transparent"
+    },
+    "Faxe Kondi": {
+      "src": "/brands/faxe-kondi.png",
+      "sourcePage": "https://www.faxekondi.dk",
+      "assetUrl": "https://www.faxekondi.dk/assets/favicons/apple-touch-icon.png",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Fulfil": {
+      "src": "/brands/fulfil.png",
+      "sourcePage": "https://fulfilnutrition.com",
+      "assetUrl": "https://fulfilnutrition.com/cdn/shop/files/FULFIL_Logo_-_B_W.png?v=1741781806&width=600",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "G Fuel": {
+      "src": "/brands/g-fuel.png",
+      "sourcePage": "https://gfuel.com/en-ca/pages/media-kit",
+      "assetUrl": "https://gfuel.com/cdn/shop/files/GFL-Favicon-100x100.png?v=1742545460",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Ghost": {
+      "src": "/brands/ghost.png",
+      "sourcePage": "https://www.ghostlifestyle.com",
+      "assetUrl": "https://www.ghostlifestyle.com/cdn/shop/files/footer_logo_3x_ad5b3973-8338-4111-9fa8-42c5c2941e19.png?v=1656436729&width=200",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Giovanni Rana": {
+      "src": "/brands/giovanni-rana.png",
+      "sourcePage": "https://www.giovanniranausa.com/",
+      "assetUrl": "https://www.giovanniranausa.com/images/layout/logo.png",
+      "verification": "Official US brand site header logo visually checked",
+      "background": "transparent"
+    },
+    "Goodles": {
+      "src": "/brands/goodles.png",
+      "sourcePage": "https://www.goodles.com",
+      "assetUrl": "https://images.ctfassets.net/bdj7cfajz56z/4jZFXlmZ0WCPA3ELjIffNI/98a3fe8e5508c57010349a14c8764e48/Goodles_OG_Image.jpg",
+      "verification": "Official site identity and rendered mark visually checked; logo cropped from official social sharing artwork",
+      "background": "original or transparent"
+    },
+    "Gorilla": {
+      "src": "/brands/gorilla.png",
+      "sourcePage": "https://gorillaenergy.com/pages/our-story",
+      "assetUrl": "https://gorillaenergy.com/cdn/shop/files/logo.png",
+      "verification": "Official Gorilla Energy site logo visually checked; distinct from Gorilla Mind",
+      "background": "dark #292929"
+    },
+    "Gorilla Mind": {
+      "src": "/brands/gorilla-mind.png",
+      "sourcePage": "https://gorillamind.com",
+      "assetUrl": "https://gorillamind.com/cdn/shop/files/Gorilla_Full2a.png?crop=center&height=180&v=1774297792&width=180",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Guinness": {
+      "src": "/brands/guinness.png",
+      "sourcePage": "https://www.guinness.com/en",
+      "assetUrl": "https://www.guinness.com/icon.png?icon.2ye_zmc-vc4vn.png",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Hell": {
+      "src": "/brands/hell.png",
+      "sourcePage": "https://www.hellenergy.com/en/",
+      "assetUrl": "https://www.hellenergy.com/wp-content/themes/klock-hell-template/css/style.css?ver=260703_1",
+      "extraction": "SVG data URL in .header .logo background-image",
+      "verification": "Official Hell Energy header mark visually checked",
+      "background": "transparent"
+    },
+    "Hitschies": {
+      "src": "/brands/hitschies.png",
+      "sourcePage": "https://hitschies.de",
+      "assetUrl": "https://www.hitschies.de/cdn/shop/files/HIT-Logo_gross_V2.png?height=240&v=1776681251",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Jack Link's": {
+      "src": "/brands/jack-link-s.png",
+      "sourcePage": "https://www.jacklinks.com",
+      "assetUrl": "https://www.jacklinks.com/cdn/shop/t/86/assets/jack-links-social-square.png?v=95249186509630874171790279658",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "original or transparent"
+    },
+    "Knorr": {
+      "src": "/brands/knorr.png",
+      "sourcePage": "https://www.knorr.com/us/en/home.html",
+      "assetUrl": "https://www.knorr.com/static/1895e328ea9e75da644aea3f3d1bd1d0dc09ece3e1902891886eb72f33994699/resources/icons/Knorr-Logo-Icon.svg",
+      "verification": "Official brand site logo visually checked",
+      "background": "transparent"
+    },
+    "Kraft": {
+      "src": "/brands/kraft.png",
+      "sourcePage": "https://www.kraftheinz.com/kraft-enhancers",
+      "assetUrl": "https://cdn.allotta.io/image/upload/f_auto/q_auto/v1713363666/dxp-images/brands/Brands%20Homepage/Kraft%20Enhancers/KRAFT-Logo-RGB_hberea.png",
+      "verification": "Official Kraft Heinz brand page logo visually checked",
+      "background": "transparent"
+    },
+    "Kronenbourg": {
+      "src": "/brands/kronenbourg.png",
+      "sourcePage": "https://www.kronenbourg.com/nos-produits/decouvrez-nos-marques/",
+      "assetUrl": "https://www.kronenbourg.com/media/h4ijawrg/brasseries_kronenbourg_logotype_horizontal_positif_rvb.svg",
+      "verification": "Official brewery site header logo visually checked; brewery wordmark",
+      "background": "transparent"
+    },
+    "Lemonsoda": {
+      "src": "/brands/lemonsoda.png",
+      "sourcePage": "https://lemonsoda.it/",
+      "assetUrl": "https://lemonsoda.it/wp-content/themes/lemonsoda2025/dist/images/logo_lemonsoda.webp",
+      "verification": "Official brand site header logo visually checked",
+      "background": "transparent"
+    },
+    "Lucky Energy": {
+      "src": "/brands/lucky-energy.png",
+      "sourcePage": "https://luckybevco.com",
+      "assetUrl": "https://luckybevco.com/cdn/shop/files/LF_StackLogo_Black_Safety_1_1.png?v=1727935339&width=600",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "M&S": {
+      "src": "/brands/m-s.png",
+      "sourcePage": "https://www.marksandspencer.com",
+      "assetUrl": "https://static.marksandspencer.com/images/favicon.ico",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Menraku": {
+      "src": "/brands/menraku.png",
+      "sourcePage": "https://hikarimiso.com/news/menraku-brand-site-launch/",
+      "assetUrl": "https://hikarimiso.com/wp-content/themes/king-design/assets/images/global/footer_logo_menraku.png",
+      "verification": "Manufacturer Hikari Miso site Menraku logo visually checked",
+      "background": "transparent"
+    },
+    "Met-Rx": {
+      "src": "/brands/met-rx.png",
+      "sourcePage": "https://metrx.com/",
+      "assetUrl": "http://metrx.com/cdn/shop/files/mx_logo_notag_mobile_1.png?v=1714670604",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "original or transparent"
+    },
+    "Milkshake Factory": {
+      "src": "/brands/milkshake-factory.png",
+      "sourcePage": "https://www.milkshakefactory.com/",
+      "assetUrl": "https://www.milkshakefactory.com/wp-content/uploads/2023/12/milkshake-logo.png",
+      "verification": "Official restaurant site header logo visually checked",
+      "background": "transparent"
+    },
+    "Monster": {
+      "src": "/brands/monster.png",
+      "sourcePage": "https://www.coca-colahellenic.com/en/our-24-7-portfolio/energy",
+      "assetUrl": "https://www.coca-colahellenic.com/content/dam/cch/us/images/our-24-7-portfolio/brand-image/Monster_energy_logo_300x300.png",
+      "verification": "Official distributor image visually checked against Monster Energy; exact claw pixels isolated, wordmark/background removed; 32px light/dark preview checked",
+      "background": "transparent"
+    },
+    "Mountain Dew": {
+      "src": "/brands/mountain-dew.png",
+      "sourcePage": "https://www.pepsico.com/en/brands/mountain-dew",
+      "assetUrl": "https://digitalassets.pepsico.com/m/5504069cd82f6685/original/00012000027215_L1.pdf",
+      "verification": "PepsiCo official flat label artwork; current Mountain Dew logo region cropped with label background and visually checked",
+      "background": "source green"
+    },
+    "Nocco": {
+      "src": "/brands/nocco.png",
+      "sourcePage": "https://nocco.com",
+      "assetUrl": "https://nocco.com/wp-content/uploads/2025/04/nocco-white@2x.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "dark"
+    },
+    "NOS": {
+      "src": "/brands/nos.png",
+      "sourcePage": "https://cokecanada.com/our-company/our-partners/",
+      "assetUrl": "https://cokecanada.com/wp-content/uploads/2022/02/NOS-Standard.png",
+      "verification": "Official Coca-Cola bottler partners page and rendered logo visually checked",
+      "background": "original"
+    },
+    "Optimum Nutrition": {
+      "src": "/brands/optimum-nutrition.png",
+      "sourcePage": "https://www.optimumnutrition.com",
+      "assetUrl": "https://www.optimumnutrition.com/cdn/shop/files/on-logo-white.svg?v=1743174124&width=750",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "dark"
+    },
+    "Oreo": {
+      "src": "/brands/oreo.png",
+      "sourcePage": "https://www.oreo.com/",
+      "assetUrl": "https://cdn.shopify.com/oxygen-v2/29113/15908/32818/4551380/assets/oreoBrandLogo-Cy1ljp7o.png",
+      "verification": "Official Oreo site brand wordmark visually checked",
+      "background": "transparent"
+    },
+    "Paris Baguette": {
+      "src": "/brands/paris-baguette.png",
+      "sourcePage": "https://parisbaguette.com",
+      "assetUrl": "https://parisbaguette.com/wp-content/uploads/2024/04/paris-baguette-logo.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "dark"
+    },
+    "Prime": {
+      "src": "/brands/prime.png",
+      "sourcePage": "https://drinkprime.com",
+      "assetUrl": "https://drinkprime.com/cdn/shop/files/Prime-Logo_500x.png?v=1637610173",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Pringles": {
+      "src": "/brands/pringles.png",
+      "sourcePage": "https://pixelbag.net/pringles-logo-download/",
+      "assetUrl": "https://pixelbag.net/pringles-logo-download/",
+      "verification": "Current 2021 Mr. P mascot visually matched against Kellanova Pringles branding; vector paths for banner/wordmark removed, mascot rasterized to inert PNG; 40px preview checked",
+      "background": "transparent",
+      "downloadItem": "SVG item-96c59l81 (free page download; rasterized locally)"
+    },
+    "Raptor": {
+      "src": "/brands/raptor.png",
+      "sourcePage": "https://raptorenergydrink.com/",
+      "assetUrl": "https://raptorenergydrink.com/wp-content/uploads/2023/05/Recurso-2-1.webp",
+      "verification": "Official Raptor Energy site header logo visually checked",
+      "background": "dark #292929"
+    },
+    "Red Bull": {
+      "src": "/brands/red-bull.png",
+      "sourcePage": "https://www.redbull.com/us-en/",
+      "assetUrl": "https://www.redbull.com/v3/resources/images/client/header/redbullcom-logo_double-with-text.svg",
+      "verification": "Official Red Bull SVG; exact dual-bull and sun symbol cropped without wordmark; 32px light/dark preview checked",
+      "background": "transparent"
+    },
+    "Reign": {
+      "src": "/brands/reign.png",
+      "sourcePage": "https://www.reignbodyfuel.com",
+      "assetUrl": "https://www.reignbodyfuel.com/img/reign-logo-black.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Relentless": {
+      "src": "/brands/relentless.png",
+      "sourcePage": "https://www.cocacolaep.com/gb/",
+      "assetUrl": "https://www.cocacolaep.com/assets/Global/Our-brands/Logo-Block/Relentless.png",
+      "verification": "Official bottler brand portfolio and rendered wordmark visually checked",
+      "background": "original"
+    },
+    "Rip It": {
+      "src": "/brands/rip-it.png",
+      "sourcePage": "https://www.ripitenergy.com",
+      "assetUrl": "https://cdn.sanity.io/images/edkuhrnf/production/2cf6a658e65a0420e3e6a04bb3ea2d7b49e40dad-271x270.png",
+      "verification": "Official site identity and rendered mark visually checked; official site icon",
+      "background": "original or transparent"
+    },
+    "Rise": {
+      "src": "/brands/rise.png",
+      "sourcePage": "https://risebiscuitschicken.com/menu-item/righteous-chicken/",
+      "assetUrl": "https://risebiscuitschicken.com/wp-content/uploads/2024/10/logo-main-pad.png",
+      "verification": "Official menu matches Chicken Biscuit with Bacon; rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Rockstar": {
+      "src": "/brands/rockstar.png",
+      "sourcePage": "https://www.rockstarenergy.com",
+      "assetUrl": "https://www.rockstarenergy.com/cdn/shop/files/RS_logo_header.png?v=1778164540&width=561",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Ryse": {
+      "src": "/brands/ryse.png",
+      "sourcePage": "https://rysesupps.com",
+      "assetUrl": "https://cdn.prod.website-files.com/5e29c211b7c9a8c5af738c09/6aa0b9db7729400ab0454420_BLACK-RYSE-LOGO-GIF.gif",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Shaqalicious": {
+      "src": "/brands/shaqalicious.png",
+      "sourcePage": "https://www.hersheyland.com/shaqalicious",
+      "assetUrl": "https://www.hersheyland.com/content/dam/hersheyland/en-us/life-style/brands/shaqalicious-xl-gummies/shaq-a-licious-xl-gummies-logo.svg",
+      "verification": "Official Hershey brand page logo visually checked",
+      "background": "transparent"
+    },
+    "Sørlands Chips": {
+      "src": "/brands/s-rlands-chips.png",
+      "sourcePage": "https://www.sorlandschips.no",
+      "assetUrl": "https://sorlandschips.no/wp-content/uploads/2021/01/Logo_Sorlandschips.svg",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Toxic Waste": {
+      "src": "/brands/toxic-waste.png",
+      "sourcePage": "https://www.toxicwastecandy.com",
+      "assetUrl": "https://www.toxicwastecandy.com/cdn/shop/files/TW_Brand_Logo.png?v=1739907726&width=600",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Trader Joe's": {
+      "src": "/brands/trader-joes.png",
+      "sourcePage": "https://locations.traderjoes.com/ca/",
+      "assetUrl": "https://llp-assets.meetsoci.com/live/assets/traderjoes/local/Base_files/original_004.svg",
+      "verification": "Official Trader Joe’s locations page labels asset Trader Joe’s Logo; visually checked",
+      "background": "transparent"
+    },
+    "Uptime": {
+      "src": "/brands/uptime.png",
+      "sourcePage": "https://www.uptimeenergy.com",
+      "assetUrl": "https://www.uptimeenergy.com/cdn/shop/files/header-logo_e15a2d58-2e37-4c54-82e3-a744f833b2b8.webp?v=1698536417&width=450",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "VELO": {
+      "src": "/brands/velo.png",
+      "sourcePage": "https://www.velo.com/en-gb/",
+      "assetUrl": "https://www.velo.com/en-gb/ (inline header SVG)",
+      "verification": "Official brand site header wordmark visually checked",
+      "background": "transparent"
+    },
+    "Velveeta": {
+      "src": "/brands/velveeta.png",
+      "sourcePage": "https://www.velveeta.com",
+      "assetUrl": "https://cdn.allotta.io/image/upload/f_auto/q_auto/v1699300889/dxp-images/brands/Brands%20Homepage/Velveeta/Velveeta-Logo-R-Small-RGB_2_boaiva_qvvyhb.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "Vikingsnacks": {
+      "src": "/brands/vikingsnacks.png",
+      "sourcePage": "https://www.vikingsnacks.no/om-vikingsnacks",
+      "assetUrl": "https://cdn.prod.website-files.com/624398bfb0c50b9117b0d922/6245e4c1ba0fd346f67e60bd_Vikingsnacks_logo_negativ-stor.png",
+      "verification": "Official brand site wordmark visually checked",
+      "background": "dark #343434"
+    },
+    "White Claw": {
+      "src": "/brands/white-claw.png",
+      "sourcePage": "https://www.whiteclaw.com",
+      "assetUrl": "https://www.whiteclaw.com/wp-content/uploads/2025/04/logo-blk.png",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    },
+    "ZOA": {
+      "src": "/brands/zoa.png",
+      "sourcePage": "https://zoaenergy.com",
+      "assetUrl": "https://cdn.shopify.com/s/files/1/0456/3674/7418/files/ZOA_Logos-22_5a02cfe5-9a84-463e-85ff-8fe567d72f1d.png?v=1752094682",
+      "verification": "Official site identity and rendered mark visually checked",
+      "background": "transparent"
+    }
+  },
+  "aliases": {
+    "Burn Energy": "Burn",
+    "GFUEL": "G Fuel",
+    "Sørlandschips": "Sørlands Chips",
+    "Sorlandschips": "Sørlands Chips"
+  },
+  "unresolved": {
+    "Akai Ramen": "No confirmed primary brand identity or standalone logo found",
+    "FitAid": "Official LIFEAID site shows FITAID mark, but its US asset redirects to a region-blocked EU page (HTTP 403)",
+    "Fuse Energy": "Several unrelated energy brands use this name; inventory identity needs product-level confirmation",
+    "Garak": "No confirmed primary brand identity or standalone logo found",
+    "Innovasjonsparken Cantine": "Local venue identity needs an official mark or venue confirmation",
+    "Kandiz": "Name matches multiple sweets businesses; inventory identity needs product-level confirmation",
+    "Kick'in": "No confirmed primary brand identity or standalone logo found",
+    "Lucky Strike": "Cigarette brand identified; accessible official page shows product imagery but no standalone mark",
+    "Move": "Name matches unrelated brands; inventory identity needs product-level confirmation",
+    "PWR BRU": "AG Barr confirms energy brand; official product site now redirects to IRN-BRU, no standalone mark verified",
+    "Powerking": "EMD energy brand identified; no verified official logo file found",
+    "React": "Name matches unrelated brands; inventory identity needs product-level confirmation",
+    "Rita": "Name matches unrelated food businesses; inventory identity needs product-level confirmation",
+    "Ronin": "Name matches unrelated brands; inventory identity needs product-level confirmation",
+    "Royal": "Name matches unrelated food and drink brands; inventory identity needs product-level confirmation",
+    "Sam's": "Name matches unrelated food businesses; inventory identity needs product-level confirmation",
+    "divanos": "No confirmed primary brand identity or standalone logo found"
+  },
+  "processing": "Local static PNGs. 59 existing marks had transparent margins trimmed and long edge scaled to 256 pixels after the 40px readability audit; mark shapes were not altered. Red Bull, Battery and Monster were reprocessed separately from their attributed sources; Pringles mascot paths were isolated from a vector source."
+}

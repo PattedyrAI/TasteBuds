@@ -1,7 +1,8 @@
+import {canonicalBrand} from './brand-identity';
 import type {Item} from '../lib/contracts';
 import {browseCategory} from './browse-categories';
 export type PersonalFilter='all'|'untried'|'saved';
-export const normalizedBrand=(brand:string|null)=>brand?.trim().replace(/\s+/g,' ').toLocaleLowerCase('en')??'';
+export const normalizedBrand=(brand:string|null)=>canonicalBrand(brand)?.toLocaleLowerCase('en')??'';
 export function filterPersonalItems(items:Item[],filter:PersonalFilter):Item[]{
  return items.filter(i=>filter==='untried'?i.myScore==null:filter==='saved'?i.saved===true:true);
 }

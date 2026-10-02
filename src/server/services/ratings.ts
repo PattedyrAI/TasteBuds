@@ -9,6 +9,7 @@ import { transaction, type Db } from '../db';
 import { audit, lookupLabel, lookupCategory, parse, requireMembership, ServiceError, userColumns, validId } from './common';
 import { comment, getRatingRecord } from './items';
 import {ratingTemplate,verifyRatingLocation,persistRatingLocation,parseTemplateValues} from './rating-location';
+import {discordItemMatchesRoute} from '../discord-routing';
 export async function createRating(userId: string, input: CreateRatingInput): Promise<Rating> {
   validId(userId); const value = parse(createRatingSchema,input);
   const photoIds=value.photoIds??[value.photoId];
@@ -66,7 +67,9 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     if(template.placeId!==prepared.placeId)throw new ServiceError(409,'Kategorimalen ble endret. Åpne vurderingen på nytt.');
     let itemId = value.itemId;
     if (itemId) {
-      if (!(await db.query('SELECT id FROM everrate.items WHERE id=$1 AND group_id=$2',[itemId,value.groupId])).rowCount) throw new ServiceError(404,'Item not found');
+      const existing=await db.query<{brand:string|null}>('SELECT b.name AS brand FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id AND b.group_id=i.group_id WHERE i.id=$1 AND i.group_id=$2 FOR SHARE OF i',[itemId,value.groupId]);
+      if (!existing.rowCount) throw new ServiceError(404,'Item not found');
+      if (!existing.rows[0].brand?.trim()) throw new ServiceError(400,'This item needs a brand before another review. Ask a group manager to update it.');
     } else {
       const brandId = await lookupLabel(db,'brands',value.groupId,value.brand);
       const typeId = await lookupCategory(db,userId,value.groupId,value.type);
@@ -81,7 +84,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     const rating = await getRatingRecord(db,result.rows[0].id);
     await db.query(`INSERT INTO everrate.discord_outbox(group_id,rating_id,route,payload)
       SELECT r.group_id,r.id,d.route,jsonb_build_object('ratingId',r.id,'itemId',i.id,'itemName',i.name,'brand',b.name,'variant',i.variant,'score',r.score,'note',r.note,'authorName',coalesce(u.nickname,u.display_name),'groupName',g.name)
-      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled AND (d.route='all' OR i.type_id=ANY(d.category_ids)) WHERE r.id=$1 AND r.source='app'`,[rating.id]);
+      FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id LEFT JOIN everrate.brands b ON b.id=i.brand_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.groups g ON g.id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.enabled AND ${discordItemMatchesRoute} WHERE r.id=$1 AND r.source='app'`,[rating.id]);
     return rating;
   });
 }

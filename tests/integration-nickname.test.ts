@@ -16,7 +16,7 @@ describe.skipIf(!url)('self-selected nicknames preserve canonical history',()=>{
   await service.ensureUser({id:person,discordId:provider,displayName:'Discord fixture name'});await service.ensureUser({id:other,displayName:'Other reviewer'});
   const group=await service.createGroup(person,{name:'Nickname fixture'});groupId=group.id;await service.joinGroup(other,{code:group.inviteCode!});
   photoId=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[groupId,person,Buffer.from('fixture'),'a'.repeat(64)])).rows[0].id;
-  const first=await service.createRating(person,{groupId,name:'Tea',score:6,photoId});itemId=first.itemId;
+  const first=await service.createRating(person,{brand:'Fixture brand',groupId,name:'Tea',score:6,photoId});itemId=first.itemId;
   await service.createRating(person,{groupId,itemId,score:8,photoId});await service.addComment(person,first.id,{body:'My earlier tasting'});
  });
  afterAll(async()=>{if(database){await getPool().end();await admin.query(`DROP DATABASE "${database}"`);}await admin?.end();});

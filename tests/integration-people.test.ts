@@ -24,13 +24,13 @@ describe.skipIf(!url)('group People and complete person history',()=>{
     const photo=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[groupId,person,Buffer.from('fixture'),'a'.repeat(64)])).rows[0].id;
     const one=await service.createRating(person,{groupId,name:'Repeated tea',brand:'Fixture brand',type:'Tea',score:4,photoId:photo,tastedAt:'2025-01-01T12:00:00.000Z'});first=one.id;itemId=one.itemId;
     second=(await service.createRating(person,{groupId,itemId,score:7.5,photoId:photo,tastedAt:'2025-01-02T12:00:00.000Z'})).id;
-    third=(await service.createRating(person,{groupId,name:'Another drink',type:'Tea',score:9,photoId:photo,tastedAt:'2025-01-02T12:00:00.000Z'})).id;
+    third=(await service.createRating(person,{brand:'Fixture brand',groupId,name:'Another drink',type:'Tea',score:9,photoId:photo,tastedAt:'2025-01-02T12:00:00.000Z'})).id;
     await getPool().query("UPDATE everrate.ratings SET created_at=CASE WHEN id=$1 THEN '2025-01-03T12:00:00.123456Z'::timestamptz ELSE '2025-01-03T12:00:00.123457Z'::timestamptz END WHERE id=ANY($2::uuid[])",[second,[second,third]]);
     deleted=(await service.createRating(person,{groupId,itemId,score:2,photoId:photo})).id;await service.deleteRating(person,deleted);
     const ownerPhoto=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[groupId,owner,Buffer.from('owner'),'b'.repeat(64)])).rows[0].id;
     otherPerson=(await service.createRating(owner,{groupId,itemId,score:8,photoId:ownerPhoto})).id;
     const outsidePhoto=(await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[otherGroupId,person,Buffer.from('outside'),'c'.repeat(64)])).rows[0].id;
-    otherGroup=(await service.createRating(person,{groupId:otherGroupId,name:'Private elsewhere',score:10,photoId:outsidePhoto})).id;
+    otherGroup=(await service.createRating(person,{brand:'Fixture brand',groupId:otherGroupId,name:'Private elsewhere',score:10,photoId:outsidePhoto})).id;
     await service.removeMember(owner,groupId,former);
   });
   afterAll(async()=>{if(database){await getPool().end();await admin.query(`DROP DATABASE "${database}"`);}await admin?.end();});

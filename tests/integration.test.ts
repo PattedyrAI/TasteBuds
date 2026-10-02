@@ -21,6 +21,15 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     groupId = (await service.createGroup(users[0], { name: 'Integration '+randomUUID() })).id;
   });
   afterAll(async () => { await getPool().end(); });
+  it('requires a real brand for new and linked reviews while preserving historical edits', async () => {
+    const photoId=await testPhoto(users[0],groupId);
+    for(const brand of [undefined,null,'','   '])await expect(service.createRating(users[0],{groupId,name:'Brand required',brand,score:7,photoId})).rejects.toMatchObject({status:400});
+    const original=await service.createRating(users[0],{groupId,name:'Historical brand',brand:'Original maker',score:7,photoId});
+    await service.updateItem(users[0],original.itemId,{brand:null});
+    await expect(service.createRating(users[0],{groupId,itemId:original.itemId,brand:'Client invention',score:8,photoId})).rejects.toMatchObject({status:400});
+    expect((await service.getItem(users[0],original.itemId)).ratings).toHaveLength(1);
+    await expect(service.updateRating(users[0],original.id,{note:'Historical correction'})).resolves.toMatchObject({note:'Historical correction'});
+  });
   it('denies outsiders and permits invitation joining with owner-only settings', async () => {
     await expect(service.getGroup(users[2], groupId)).rejects.toMatchObject({ status: 404 });
     const g = await service.getGroup(users[0], groupId);
@@ -43,13 +52,13 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect(mine.ratings[0]).toMatchObject({isRereview:true,countsTowardAverage:true});
     expect(feed[0].countsTowardAverage).toBe(true);
 
-    const unknown = await createWithPhoto(users[0], { groupId, name: 'Cola', score: 5 });
+    const otherBrand = await createWithPhoto(users[0], {brand:'Fixture brand', groupId, name: 'Cola', score: 5 });
     const variant = await createWithPhoto(users[0], { groupId, name: 'Cola', brand: 'Coke', variant: 'Zero', score: 5 });
-    expect(new Set([a.itemId, unknown.itemId, variant.itemId]).size).toBe(3);
+    expect(new Set([a.itemId, otherBrand.itemId, variant.itemId]).size).toBe(3);
     await expect(service.getItem(users[2], a.itemId)).rejects.toMatchObject({ status: 404 });
   });
   it('keeps backdated rereviews out of the average and restores the previous score after deletion', async () => {
-    const first=await createWithPhoto(users[0],{groupId,name:'Rereview timeline',score:3,tastedAt:'2024-01-01T12:00:00Z'});
+    const first=await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Rereview timeline',score:3,tastedAt:'2024-01-01T12:00:00Z'});
     const latest=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:9,tastedAt:'2025-01-01T12:00:00Z'});
     const backdated=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:1,tastedAt:'2023-01-01T12:00:00Z'});
     await createWithPhoto(users[1],{groupId,itemId:first.itemId,score:5});
@@ -64,7 +73,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect(after.ratings.filter(r=>r.countsTowardAverage)).toHaveLength(2);
   });
   it('marks exactly one counting review when tasting and creation timestamps tie', async () => {
-    const first=await createWithPhoto(users[0],{groupId,name:'Tied rereviews',score:4,tastedAt:'2024-01-01T12:00:00Z'});
+    const first=await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Tied rereviews',score:4,tastedAt:'2024-01-01T12:00:00Z'});
     const second=await createWithPhoto(users[0],{groupId,itemId:first.itemId,score:8,tastedAt:'2024-01-01T12:00:00Z'});
     await getPool().query("UPDATE everrate.ratings SET created_at='2024-01-01T12:00:00Z' WHERE id=ANY($1::uuid[])",[[first.id,second.id]]);
     const item=await service.getItem(users[0],first.itemId),winner=[first,second].sort((a,b)=>b.id.localeCompare(a.id))[0];
@@ -73,13 +82,13 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect(item.ratings.find(r=>r.id===winner.id)?.isRereview).toBe(true);
   });
   it('serializes concurrent submits with the same idempotency key', async () => {
-    const input = { groupId, name: 'Concurrent', score: 7, idempotencyKey: randomUUID() };
+    const input = {brand:'Fixture brand', groupId, name: 'Concurrent', score: 7, idempotencyKey: randomUUID() };
     const results = await Promise.all([createWithPhoto(users[0], input), createWithPhoto(users[0], input)]);
     expect(results[0].id).toBe(results[1].id);
     await expect(createWithPhoto(users[0], { ...input, score: 8 })).rejects.toMatchObject({ status: 409 });
   });
   it('enforces ownership and retains revisions after edits and soft deletes', async () => {
-    const rating = await createWithPhoto(users[1], { groupId, name: 'Correction', score: 3 });
+    const rating = await createWithPhoto(users[1], {brand:'Fixture brand', groupId, name: 'Correction', score: 3 });
     await expect(service.updateRating(users[2], rating.id, { score: 9 })).rejects.toMatchObject({ status: 404 });
     const edited = await service.updateRating(users[1], rating.id, { score: 9 });
     expect(edited.score).toBe(9);
@@ -93,8 +102,8 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     expect(revisions.rowCount).toBe(2);
   });
   it('lets members manage their own history without gaining admin access or changing another person’s review',async()=>{
-    const mine=await createWithPhoto(users[1],{groupId,name:'My editable review',score:4.5,note:'Original opinion'});
-    const other=await createWithPhoto(users[0],{groupId,name:'Another person review',score:8});
+    const mine=await createWithPhoto(users[1],{brand:'Fixture brand',groupId,name:'My editable review',score:4.5,note:'Original opinion'});
+    const other=await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Another person review',score:8});
     const history=await service.getPersonRatings(users[1],groupId,users[1]);
     expect(history.ratings.some(r=>r.id===mine.id)).toBe(true);
     expect(history.ratings.some(r=>r.id===other.id)).toBe(false);
@@ -111,7 +120,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
   it('preserves an existing relay photo during an authorized historical correction', async () => {
     await service.joinGroup(users[1],{code:(await service.getGroup(users[0],groupId)).inviteCode!});
     const relayPhoto = await testPhoto(users[0], groupId);
-    const rating = await createWithPhoto(users[1], {groupId, name:'Relayed review', score:4});
+    const rating = await createWithPhoto(users[1], {brand:'Fixture brand',groupId, name:'Relayed review', score:4});
     await getPool().query("UPDATE everrate.ratings SET photo_id=$1,source='import' WHERE id=$2",[relayPhoto,rating.id]);
     await expect(service.updateRating(users[1],rating.id,{score:8,photoId:relayPhoto})).resolves.toMatchObject({score:8,photoId:relayPhoto});
     await expect(service.updateRating(users[0],rating.id,{note:'Owner correction',photoId:relayPhoto})).resolves.toMatchObject({note:'Owner correction',photoId:relayPhoto});
@@ -165,7 +174,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     const blocker = await getPool().connect();
     await blocker.query('BEGIN');
     await blocker.query('SELECT id FROM everrate.groups WHERE id=$1 FOR UPDATE',[g.id]);
-    const pending = createWithPhoto(users[1],{groupId:g.id,name:'Must be rejected',score:5}).then(value=>({value,error:null}),error=>({value:null,error}));
+    const pending = createWithPhoto(users[1],{brand:'Fixture brand',groupId:g.id,name:'Must be rejected',score:5}).then(value=>({value,error:null}),error=>({value:null,error}));
     try {
       let waiting = false;
       for(let n=0;n<100;n++) {
@@ -182,7 +191,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
   it('retains departed members history while current-member statistics exclude them', async () => {
     const g = await service.createGroup(users[0],{name:'Membership statistics'});
     await service.joinGroup(users[1],{code:g.inviteCode!});
-    const first = await createWithPhoto(users[0],{groupId:g.id,name:'Shared tea',score:8});
+    const first = await createWithPhoto(users[0],{brand:'Fixture brand',groupId:g.id,name:'Shared tea',score:8});
     await createWithPhoto(users[1],{groupId:g.id,itemId:first.itemId,score:2});
     await service.removeMember(users[0],g.id,users[1]);
     const item = await service.getItem(users[0],first.itemId);
@@ -234,7 +243,7 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     } finally { await blocker.query('ROLLBACK'); blocker.release(); }
   });
   it('corrects comments for author and owner, retaining prior bodies in the audit log', async () => {
-    const rating = await createWithPhoto(users[0],{groupId,name:'Comment target',score:5});
+    const rating = await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Comment target',score:5});
     const original = await service.addComment(users[0],rating.id,{body:'Original note'});
     await expect(service.updateComment(users[2],original.id,{body:'Leak'})).rejects.toMatchObject({status:404});
     await expect(service.updateComment(users[1],original.id,{body:'Not mine'})).rejects.toMatchObject({status:403});
@@ -252,8 +261,8 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
   });
   it('rejects cross-group relationships directly at the PostgreSQL foreign-key boundary', async () => {
     const other = await service.createGroup(users[2],{name:'Foreign key isolation'});
-    const foreign = await createWithPhoto(users[2],{groupId:other.id,name:'Foreign key target',score:5});
-    const local = await createWithPhoto(users[0],{groupId,name:'Local FK target',score:6});
+    const foreign = await createWithPhoto(users[2],{brand:'Fixture brand',groupId:other.id,name:'Foreign key target',score:5});
+    const local = await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Local FK target',score:6});
     const photo = await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id",[other.id,users[2],Buffer.from('fk'),'f'.repeat(64)]);
     await expect(getPool().query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,photo_id) VALUES($1,$2,$3,5,$4)',[groupId,foreign.itemId,users[0],await testPhoto(users[0],groupId)])).rejects.toMatchObject({code:'23503'});
     await expect(getPool().query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score,photo_id) VALUES($1,$2,$3,5,$4)',[groupId,local.itemId,users[0],photo.rows[0].id])).rejects.toMatchObject({code:'23503'});
@@ -274,8 +283,8 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
     } finally { await getPool().query('ALTER TABLE everrate.discord_outbox DROP CONSTRAINT '+constraint); }
   });
   it('requires a real attached photo for every new rating and for correcting legacy photo exceptions', async () => {
-    await expect(service.createRating(users[0],{groupId,name:'No photo',score:5,photoId:undefined as unknown as string})).rejects.toMatchObject({status:400});
-    const withPhoto=await createWithPhoto(users[0],{groupId,name:'Required photo',score:7});
+    await expect(service.createRating(users[0],{brand:'Fixture brand',groupId,name:'No photo',score:5,photoId:undefined as unknown as string})).rejects.toMatchObject({status:400});
+    const withPhoto=await createWithPhoto(users[0],{brand:'Fixture brand',groupId,name:'Required photo',score:7});
     const corrected=await service.updateRating(users[0],withPhoto.id,{score:8});
     expect(corrected.photoId).toBe(withPhoto.photoId);
     await expect(getPool().query('INSERT INTO everrate.ratings(group_id,item_id,user_id,score) VALUES($1,$2,$3,5)',[groupId,withPhoto.itemId,users[0]])).rejects.toMatchObject({code:'23514'});
@@ -286,10 +295,10 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
   });
   it('rejects cross-group items and photos and requires owner transfer before leaving', async () => {
     const other = await service.createGroup(users[2], { name: 'Other' });
-    const rating = await createWithPhoto(users[2], { groupId: other.id, name: 'Private', score: 6 });
+    const rating = await createWithPhoto(users[2], {brand:'Fixture brand', groupId: other.id, name: 'Private', score: 6 });
     await expect(createWithPhoto(users[0], { groupId, itemId: rating.itemId, score: 7 })).rejects.toMatchObject({ status: 404 });
     const photo = await getPool().query(`insert into everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) values($1,$2,$3,$4,'image/jpeg',1,1) returning id`, [other.id,users[2],Buffer.from('x'),'a'.repeat(64)]);
-    await expect(createWithPhoto(users[0], { groupId, name: 'Foreign', score: 7, photoId: photo.rows[0].id })).rejects.toMatchObject({ status: 404 });
+    await expect(createWithPhoto(users[0], {brand:'Fixture brand', groupId, name: 'Foreign', score: 7, photoId: photo.rows[0].id })).rejects.toMatchObject({ status: 404 });
     await expect(service.updateGroup(users[0], groupId, { leave: true })).rejects.toMatchObject({ status: 409 });
     await service.updateGroup(users[0], groupId, { ownerId: users[1] });
     await service.updateGroup(users[0], groupId, { leave: true });

@@ -20,7 +20,7 @@ describe('latest-person average', () => {
   it('has an honest empty state', () => expect(latestAverage([])).toEqual({ average: null, raterCount: 0, tastingCount: 0 }));
 });
 describe('rating validation', () => {
-  const input = { groupId: 'ae27b2d0-e1ef-4bd2-b579-b34760f90560', name: 'Tea', score: 7, photoId:'ae27b2d0-e1ef-4bd2-b579-b34760f90561' };
+  const input = { groupId: 'ae27b2d0-e1ef-4bd2-b579-b34760f90560', name: 'Tea', brand: 'Tea brand', score: 7, photoId:'ae27b2d0-e1ef-4bd2-b579-b34760f90561' };
   it('rejects bad scores, missing identity, invalid IDs and dates', () => {
     for (const patch of [{photoId:undefined}, {photoId:null}, { score: 0 }, { score: 11 }, { score: NaN }, { name: ' ' }, { groupId: 'bad' }, { tastedAt: 'invalid' }]) {
       expect(createRatingSchema.safeParse({ ...input, ...patch }).success).toBe(false);

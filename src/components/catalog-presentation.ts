@@ -1,3 +1,4 @@
+import {canonicalBrand} from '../domain/brand-identity';
 import type {Item} from '@/lib/contracts';
 import {browseCategory} from '../domain/browse-categories';
 export type CategorySummary={type:string|null;items:Item[];tastingCount:number};
@@ -15,7 +16,7 @@ export function groupFavourites(items:Item[]):Item[]{
   return items.filter(i=>i.raterCount>=3&&i.average!==null).sort((a,b)=>b.average!-a.average!||a.name.localeCompare(b.name)).slice(0,10);
 }
 export const FEATURED_BRAND_MIN_ITEMS=3;
-export const brandKey=(brand:string|null)=>brand?.trim().replace(/\s+/g,' ').toLocaleLowerCase('en')??'';
+export const brandKey=(brand:string|null)=>canonicalBrand(brand)?.toLocaleLowerCase('en')??'';
 /** Count distinct rated products, not repeat tastings of the same product. */
 export function featuredBrands(items:Item[]):{key:string;name:string;itemCount:number}[]{
   const brands=new Map<string,{name:string;ids:Set<string>}>();

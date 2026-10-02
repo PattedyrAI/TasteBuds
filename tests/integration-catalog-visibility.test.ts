@@ -28,10 +28,10 @@ describe.skipIf(!url)('catalog visibility follows retained nondeleted tastings',
     groupId = (await service.createGroup(owner, { name: 'Catalog fixture' })).id;
     emptyItem = (await getPool().query(`INSERT INTO everrate.items(group_id,name,identity_key,created_by,legacy_metadata) VALUES($1,'A Empty alias','empty-alias',$2,'{"originalReviewerLabel":"alias"}') RETURNING id`, [groupId, owner])).rows[0].id;
     const photoId = (await getPool().query("INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height) VALUES($1,$2,$3,$4,'image/jpeg',1,1) RETURNING id", [groupId, owner, Buffer.from('fixture'), 'a'.repeat(64)])).rows[0].id;
-    const rated = await service.createRating(owner, { groupId, name: 'B Rated product', type: 'Tea', score: 7, photoId }); ratedItem = rated.itemId;
-    const deleted = await service.createRating(owner, { groupId, name: 'C Deleted-only product', type: 'Dormant type', score: 6, photoId }); deletedItem = deleted.itemId; deletedRating = deleted.id;
+    const rated = await service.createRating(owner, {brand:'Fixture brand', groupId, name: 'B Rated product', type: 'Tea', score: 7, photoId }); ratedItem = rated.itemId;
+    const deleted = await service.createRating(owner, {brand:'Fixture brand', groupId, name: 'C Deleted-only product', type: 'Dormant type', score: 6, photoId }); deletedItem = deleted.itemId; deletedRating = deleted.id;
     await service.deleteRating(owner, deleted.id);
-    const repeat = await service.createRating(owner, { groupId, name: 'D Repeat product', type: 'Tea', score: 4, photoId }); repeatItem = repeat.itemId;
+    const repeat = await service.createRating(owner, {brand:'Fixture brand', groupId, name: 'D Repeat product', type: 'Tea', score: 4, photoId }); repeatItem = repeat.itemId;
     await service.createRating(owner, { groupId, itemId: repeatItem, score: 8, photoId });
   });
 
