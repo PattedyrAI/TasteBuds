@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {Pool,type PoolClient} from 'pg';
 import {z} from 'zod';
 import {canonicalBrand} from '../src/domain/brand-identity';
-import {identitySuspectFlags,identityToken,normalizedStoredIdentity,IDENTITY_CONFIDENCE_THRESHOLD,type IdentityInput,type IdentityFlag} from '../src/domain/identity-suspects';
+import {identitySuspectFlags,identityToken,normalizedStoredIdentity,IDENTITY_CONFIDENCE_THRESHOLD,type IdentityInput,type IdentityFlag} from './lib/identity-suspects';
 import {normalizePhotoIdentity,PHOTO_IDENTITY_VERSION,groupPhotoEvidence,type PhotoIdentity,type PhotoEvidence} from './analyze-photo-identities';
 import {captureIdentitySnapshots,identityPlanSha256,type IdentityCorrectionPlan} from './apply-identity-corrections';
 
