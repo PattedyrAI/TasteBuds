@@ -12,7 +12,7 @@ export function mapsConfiguration(){
 export async function fetchPlaceLocation(placeId:string):Promise<RestaurantLocation>{
   parse(placeIdSchema,placeId);
   const key=process.env.GOOGLE_PLACES_SERVER_KEY?.trim();
-  if(!key)throw new ServiceError(503,'Google Maps er ikke konfigurert ennå.');
+  if(!key)throw new ServiceError(503,'Google Maps is not configured yet.');
   try{
     const response=await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,{
       headers:{'X-Goog-Api-Key':key,'X-Goog-FieldMask':'id,location'},cache:'no-store',signal:AbortSignal.timeout(8000),
@@ -21,7 +21,7 @@ export async function fetchPlaceLocation(placeId:string):Promise<RestaurantLocat
     const data=responseSchema.parse(await response.json());
     if(data.id!==placeId)throw new Error('Unexpected place identity');
     return {lat:data.location.latitude,lng:data.location.longitude};
-  }catch{throw new ServiceError(502,'Kunne ikke hente plasseringen fra Google. Prøv igjen senere.');}
+  }catch{throw new ServiceError(502,'Could not fetch the location from Google. Try again later.');}
 }
 
 // No persistent coordinates: expiring memory only, bounded even in a long-lived server.
@@ -33,18 +33,18 @@ expiry.unref();
 async function reserveRequest(){
   const configured=Number(process.env.GOOGLE_PLACES_DAILY_LIMIT??500);
   const limit=Number.isSafeInteger(configured)&&configured>=0?configured:500;
-  if(!limit)throw new ServiceError(429,'Dagens grense for stedsoppslag er nådd. Prøv igjen i morgen.');
+  if(!limit)throw new ServiceError(429,"Today's limit for place lookups has been reached. Try again tomorrow.");
   const result=await getPool().query(`INSERT INTO everrate.google_places_usage(usage_day,requests)
     VALUES((now() AT TIME ZONE 'UTC')::date,1)
     ON CONFLICT(usage_day) DO UPDATE SET requests=everrate.google_places_usage.requests+1
     WHERE everrate.google_places_usage.requests<$1 RETURNING requests`,[limit]);
-  if(!result.rowCount)throw new ServiceError(429,'Dagens grense for stedsoppslag er nådd. Prøv igjen i morgen.');
+  if(!result.rowCount)throw new ServiceError(429,"Today's limit for place lookups has been reached. Try again tomorrow.");
 }
 /** Call only after membership and group-feature authorization. */
 export async function getPlaceLocation(placeId:string):Promise<RestaurantLocation>{
   parse(placeIdSchema,placeId);
   const key=process.env.GOOGLE_PLACES_SERVER_KEY;
-  if(!key?.trim())throw new ServiceError(503,'Google Maps er ikke konfigurert ennå.');
+  if(!key?.trim())throw new ServiceError(503,'Google Maps is not configured yet.');
   const hit=cache.get(placeId);
   if(hit&&hit.expires>Date.now())return hit.location;
   cache.delete(placeId);

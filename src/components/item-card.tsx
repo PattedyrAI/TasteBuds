@@ -2,7 +2,7 @@
 import {ArrowUpRight} from 'lucide-react';
 import type {Item} from '@/lib/contracts';
 import {Avatar,Photo,Score} from './ui';
-import {categoryStyle} from './category-style';
+import {isSugarfree} from '../domain/energy-drinks';
 import {BrandLabel} from './brand-label';
 import {SaveItemButton} from './discovery-actions';
 import {ScoreBar,ScoreRowNote} from './score-bar';
@@ -16,12 +16,14 @@ export function ReviewerBubbles({item}:{item:Item}){
  </span>;
 }
 export function TastingScore({item}:{item:Item}){return <span className="tasting-score"><Score value={item.average}/><span className="score-tastings">{item.tastingCount} {item.tastingCount===1?'tasting':'tastings'}</span></span>;}
-/** Photo first, then who made it, what it is, and how you (and one friend) scored it. */
+/** Photo and group score first, then what it is, then where you stand. */
 export function ItemCard({item,open,friend}:{item:Item;open:(id:string)=>void;friend?:FriendScore}){
- return <article className={`item-card${item.myScore===10?' personal-perfect':''}`} style={categoryStyle(item.type)}><button type="button" className="card-open-hit" onClick={()=>open(item.id)} aria-label={`View ${item.name}`}/>
-  <div className="card-image"><SaveItemButton item={item} compact/><Photo id={item.photoId} name={item.name}/>{item.type&&<span className="image-tag category-colour">{item.type}</span>}</div>
-  <div className="card-body"><div className="card-title"><BrandLabel brand={item.brand} interactive/><h2>{item.name}</h2>{item.variant&&<p>{item.variant}</p>}</div>
-  <div className={`card-scores${friend?' comparing':''}`}><ScoreBar tone="mine" label={friend?'You':'You rated it'} score={item.myScore??null} empty="You haven’t tried this"/>{friend&&(friend.state==='ready'?<ScoreBar tone="friend" label={friend.name} score={friend.score} empty={`${friend.name} hasn’t rated this`}/>:<ScoreRowNote tone="friend" state={friend.state}>{friend.state==='loading'?`Checking ${friend.name}…`:`${friend.name}’s score didn’t load`}</ScoreRowNote>)}</div>
-  <footer><div className="card-community"><span className="card-community-score"><Score value={item.average}/><small>group · {item.tastingCount} {item.tastingCount===1?'tasting':'tastings'}</small></span><ReviewerBubbles item={item}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight size={18}/></span></footer></div>
+ return <article className={`item-card${item.myScore===10?' personal-perfect':''}`}><button type="button" className="card-open-hit" onClick={()=>open(item.id)} aria-label={`View ${item.name}`}/>
+  <div className="card-image"><SaveItemButton item={item} compact/><Photo id={item.photoId} name={item.name}/><span className="card-score"><Score value={item.average}/></span></div>
+  <div className="card-body"><div className="card-title"><BrandLabel brand={item.brand}/><h2>{item.name}</h2></div>
+  <p className="card-meta">{[item.type,item.variant&&(isSugarfree(item.variant)?'Sugar-free':item.variant)].filter(Boolean).join(' · ')}</p>
+  <footer><ReviewerBubbles item={item}/>{item.myScore==null?<span className="card-mine muted">Not tried</span>:<span className="card-mine">You <Score value={item.myScore}/></span>}</footer>
+  {friend&&<div className="card-scores comparing">{friend.state==='ready'?<ScoreBar tone="friend" label={friend.name} score={friend.score} empty={`${friend.name} hasn’t rated this`}/>:<ScoreRowNote tone="friend" state={friend.state}>{friend.state==='loading'?`Checking ${friend.name}…`:`${friend.name}’s score didn’t load`}</ScoreRowNote>}</div>}
+  </div>
  </article>;
 }

@@ -12,13 +12,14 @@ describe('mandatory review brand',()=>{
     expect(createRatingSchema.parse({...value,brand:'  Acme  '}).brand).toBe('Acme');
     expect(createRatingSchema.safeParse({...value,itemId:value.groupId}).success).toBe(true);
   });
-  it.each(['Energy drinks','Food','Restaurants','Movies'])('renders required Brand before Model for %s',type=>{
+  it.each(['Energy drinks','Food','Restaurants','Movies'])('renders required Brand before the name for %s',type=>{
     const item={name:'Original',brand:'Acme',type} as Item;
     const html=renderToStaticMarkup(<RatingForm groupId="group" item={item} categories={[type]} close={()=>{}} saved={()=>{}}/>);
-    const brand=html.match(/<label>[^<]*Brand[^<]*(?:<[^>]*>[^<]*<\/[^>]*>)*<input[^>]*>/)?.[0];
-    expect(brand).toBeDefined();
+    const labels=html.match(/<label>(?:(?!<\/label>)[\s\S])*<\/label>/g)||[];
+    const brand=labels.find(label=>/>Brand( or place)?</.test(label)),name=labels.find(label=>/>(Flavour|What’s it called\?)</.test(label));
+    expect(brand).toBeDefined();expect(name).toBeDefined();
     expect(brand).toContain('required=""');
     expect(brand).not.toContain('optional');
-    expect(html.indexOf(brand!)).toBeLessThan(html.indexOf('Model'));
+    expect(html.indexOf(brand!)).toBeLessThan(html.indexOf(name!));
   });
 });

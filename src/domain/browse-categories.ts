@@ -2,6 +2,9 @@ import {canonicalItemType} from './item-types';
 
 /** Broader browsing groups preserve each item's specific dish label and identity. */
 const groups:Record<string,readonly string[]>={
+  // Placeholder labels from older reviews describe a section, not a dish.
+  Meals:['Meals','Food','Restaurants','Restaurant','Lunch'],
+  'Other drinks':['Drink','Drinks'],
   'Desserts & pastries':['Desserts','Cakes','Cheesecake','Cookies','Donuts','Pastries','Ice cream','Pancakes','Crepes','Sticky Toffee Pudding'],
   Snacks:['Snacks','Chips','Pretzels','Jerky','Salami','Protein bars'],
   'Sandwiches & wraps':['Sandwiches','Wraps','Gyros','Lobster roll','Fajitas','Burritos','Quesadilla','Quesadillas'],

@@ -6,7 +6,7 @@ import {getPlaceLocation,mapsConfiguration} from '../google-places';
 import {requireMembership,ServiceError} from './common';
 
 export function parseTemplateValues(fields:CategoryField[],values:CustomFields){
-  try{return validateCustomFields(fields,values);}catch(error){throw new ServiceError(400,error instanceof Error?error.message:'Kontroller ekstrafeltene.');}
+  try{return validateCustomFields(fields,values);}catch(error){throw new ServiceError(400,error instanceof Error?error.message:'Check the extra fields.');}
 }
 export async function ratingTemplate(db:Db,userId:string,input:CreateRatingInput){
   await requireMembership(db,userId,input.groupId);
@@ -19,7 +19,7 @@ export async function ratingTemplate(db:Db,userId:string,input:CreateRatingInput
   const locationField=fields.find(f=>f.type==='location');
   const submitted={...input.customFields};
   if(locationField&&result.rows[0]?.place_id){
-    if(submitted[locationField.id]&&submitted[locationField.id]!==result.rows[0].place_id)throw new ServiceError(409,'Oppføringen er allerede koblet til et annet sted.');
+    if(submitted[locationField.id]&&submitted[locationField.id]!==result.rows[0].place_id)throw new ServiceError(409,'This entry is already linked to a different place.');
     submitted[locationField.id]=result.rows[0].place_id;
   }
   const values=parseTemplateValues(fields,submitted);
@@ -28,7 +28,7 @@ export async function ratingTemplate(db:Db,userId:string,input:CreateRatingInput
 }
 export async function verifyRatingLocation(placeId?:string){
   if(!placeId)return;
-  if(!mapsConfiguration().configured)throw new ServiceError(503,'Google Maps er ikke konfigurert ennå.');
+  if(!mapsConfiguration().configured)throw new ServiceError(503,'Google Maps is not configured yet.');
   await getPlaceLocation(placeId);
 }
 export async function persistRatingLocation(db:Db,userId:string,groupId:string,itemId:string,placeId?:string){
@@ -36,5 +36,5 @@ export async function persistRatingLocation(db:Db,userId:string,groupId:string,i
   await db.query(`INSERT INTO everrate.restaurant_places(group_id,item_id,place_id,created_by) VALUES($1,$2,$3,$4)
     ON CONFLICT(group_id,item_id) DO NOTHING`,[groupId,itemId,placeId,userId]);
   const result=await db.query('SELECT place_id FROM everrate.restaurant_places WHERE group_id=$1 AND item_id=$2',[groupId,itemId]);
-  if(result.rows[0].place_id!==placeId)throw new ServiceError(409,'En annen plassering ble nettopp lagret. Åpne oppføringen på nytt.');
+  if(result.rows[0].place_id!==placeId)throw new ServiceError(409,'A different location was just saved. Open the entry again.');
 }

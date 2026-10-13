@@ -68,3 +68,21 @@ describe('AI suggestion mapping',()=>{
     expect(energyDrinkSuggestion('Ultra White',null)).toEqual({name:'Ultra White',sugarfree:false});
   });
 });
+
+import {sugarfreeSibling} from '../src/domain/energy-drinks';
+describe('sugar-free sibling',()=>{
+ const drink=(id:string,brand:string|null,name:string,variant:string|null,type='Energy drinks')=>({id,brand,name,variant,type});
+ const items=[drink('a','Red Bull','Original',null),drink('b','Redbull','original','Sugarfree'),drink('c','Monster','Original','Zero'),drink('d','Red Bull','Tropical','Sugarfree'),drink('e','Red Bull','Original','Sugarfree','Soft drinks')];
+ it('finds the other version of the same brand and flavour',()=>{
+  expect(sugarfreeSibling(items,items[0],true)?.id).toBe('b');
+  expect(sugarfreeSibling(items,items[1],false)?.id).toBe('a');
+ });
+ it('never matches another brand, flavour or category',()=>{
+  expect(sugarfreeSibling(items,drink('x','Monster','Tropical',null),true)).toBeNull();
+  expect(sugarfreeSibling(items.filter(i=>i.id!=='b'),items[0],true)).toBeNull();
+  // Another variant of the same name is a different product, never "the regular one".
+  const withOrange=[drink('o','Red Bull','Original','Orange'),...items];
+  expect(sugarfreeSibling(withOrange,items[1],false)?.id).toBe('a');
+  expect(sugarfreeSibling(withOrange.filter(i=>i.id!=='a'),items[1],false)).toBeNull();
+ });
+});
