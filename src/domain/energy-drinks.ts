@@ -52,3 +52,11 @@ export function energyDrinkSuggestion(name:string,variant:string|null|undefined)
   if(!flavour||sugarfree||words(name).includes(words(flavour)))return {name,sugarfree};
   return {name:`${name} ${flavour}`.trim(),sugarfree};
 }
+
+/** The same drink in the other sugar version, if the group already has it. Never crosses brands or flavours. */
+export function sugarfreeSibling<T extends LookupItem>(items:readonly T[],current:LookupItem,sugarfree:boolean):T|null{
+  const brand=key(current.brand)||null,name=words(current.name);
+  // Regular means no variant at all: for energy drinks a variant only ever records sugar-free, so "Orange" is another product.
+  const wanted=(variant:string|null)=>sugarfree?isSugarfree(variant):!variant?.trim();
+  return items.find(item=>item.id!==current.id&&isEnergyDrinkCategory(item.type)&&(key(item.brand)||null)===brand&&words(item.name)===name&&wanted(item.variant))??null;
+}

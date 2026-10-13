@@ -18,7 +18,7 @@ export async function createCategory(userId:string,groupId:string,input:unknown)
     await db.query('SELECT id FROM everrate.groups WHERE id=$1 FOR UPDATE',[validId(groupId)]);
     await requireMembership(db,userId,groupId,true);
     const name=canonicalItemType(value.name);
-    if((await db.query('SELECT id FROM everrate.item_types WHERE group_id=$1 AND lower(name)=lower($2)',[groupId,name])).rowCount)throw new ServiceError(409,'Kategorien finnes allerede. Velg den eksisterende kategorien eller bruk et annet navn.');
+    if((await db.query('SELECT id FROM everrate.item_types WHERE group_id=$1 AND lower(name)=lower($2)',[groupId,name])).rowCount)throw new ServiceError(409,'The category already exists. Choose the existing category or use a different name.');
     const result=await db.query('INSERT INTO everrate.item_types(group_id,name,fields) VALUES($1,$2,$3) RETURNING *',[groupId,name,JSON.stringify(value.fields)]);
     await audit(db,userId,groupId,'category.create',result.rows[0].id);return category(result.rows[0]);
   });
@@ -29,9 +29,9 @@ export async function updateCategory(userId:string,groupId:string,categoryId:str
     await db.query('SELECT id FROM everrate.groups WHERE id=$1 FOR UPDATE',[validId(groupId)]);
     await requireMembership(db,userId,groupId,true);
     const old=await db.query('SELECT * FROM everrate.item_types WHERE group_id=$1 AND id=$2',[groupId,categoryId]);
-    if(!old.rowCount)throw new ServiceError(404,'Kategorien finnes ikke.');
+    if(!old.rowCount)throw new ServiceError(404,'The category does not exist.');
     const name=canonicalItemType(value.name);
-    if((await db.query('SELECT 1 FROM everrate.item_types WHERE group_id=$1 AND lower(name)=lower($2) AND id<>$3',[groupId,name,categoryId])).rowCount)throw new ServiceError(409,'En annen kategori har dette navnet.');
+    if((await db.query('SELECT 1 FROM everrate.item_types WHERE group_id=$1 AND lower(name)=lower($2) AND id<>$3',[groupId,name,categoryId])).rowCount)throw new ServiceError(409,'Another category already has this name.');
     const result=await db.query('UPDATE everrate.item_types SET name=$1,fields=$2 WHERE group_id=$3 AND id=$4 RETURNING *',[name,JSON.stringify(value.fields),groupId,categoryId]);
     await audit(db,userId,groupId,'category.template',categoryId,{previous:category(old.rows[0]),updated:category(result.rows[0])});return category(result.rows[0]);
   });

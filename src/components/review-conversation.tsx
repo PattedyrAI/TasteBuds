@@ -10,6 +10,8 @@ export function ReviewConversation({ratingId,comments,user,owner,person,onChange
   const [draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[status,setStatus]=useState('');
   const [menu,setMenu]=useState<string|null>(null),[removing,setRemoving]=useState<string|null>(null);
   const [editing,setEditing]=useState<{id:string;body:string}|null>(null);
+  // The composer opens on request, so a list of tastings isn't a stack of empty text boxes.
+  const [composing,setComposing]=useState(false);
   async function run(work:()=>Promise<void>){
     if(inFlight.current)return;
     inFlight.current=true;setBusy(true);setError('');setStatus('');
@@ -24,7 +26,7 @@ export function ReviewConversation({ratingId,comments,user,owner,person,onChange
     });
   }
   return <section className="review-conversation" aria-labelledby={headingId} onKeyDown={event=>{if(event.key==='Escape'&&menu){event.preventDefault();event.stopPropagation();setMenu(null);}}}>
-    <header className="conversation-heading"><h4 id={headingId}><MessageCircle size={17}/> Conversation <span>{comments.length}</span></h4></header>
+    {comments.length>0?<header className="conversation-heading"><h4 id={headingId}><MessageCircle size={17}/> Comments <span>{comments.length}</span></h4></header>:<h4 id={headingId} className="sr-only">Comments</h4>}
     {comments.length?<ol className="conversation-messages">{comments.map(comment=>{
       const own=comment.author.id===user.id,canManage=own||owner;
       return <li className={`conversation-message${own?' is-own':''}`} key={comment.id}>
@@ -47,16 +49,17 @@ export function ReviewConversation({ratingId,comments,user,owner,person,onChange
           {removing===comment.id&&<div className="conversation-confirm"><p>Delete this comment?</p><button type="button" disabled={busy} onClick={()=>void run(async()=>{await request(`/api/comments/${comment.id}`,'DELETE');onChange(comments.filter(c=>c.id!==comment.id));setRemoving(null);})}>Delete</button><button type="button" disabled={busy} onClick={()=>setRemoving(null)}>Keep it</button></div>}
         </div>
       </li>;
-    })}</ol>:<p className="conversation-empty">Agree with the score? Start the conversation.</p>}
+    })}</ol>:null}
+    {!composing&&<button type="button" className="text-button conversation-open" onClick={()=>setComposing(true)}><MessageCircle size={16}/>{comments.length?'Reply':'Comment'}</button>}
     <span role="status" className="sr-only">{status}</span>
     {error&&<p className="error conversation-error" role="alert">{error}</p>}
-    <form className="conversation-composer" onSubmit={event=>{event.preventDefault();send();}}>
+    {composing&&    <form className="conversation-composer" onSubmit={event=>{event.preventDefault();send();}}>
       <Avatar name={user.displayName} url={user.avatarUrl}/>
       <div className="conversation-input-wrap">
         <label htmlFor={inputId} className="sr-only">Add a comment</label>
-        <textarea ref={input} id={inputId} aria-describedby={hintId} placeholder="What do you think?" rows={2} maxLength={3000} required readOnly={busy} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&event.keyCode!==229){event.preventDefault();send();}}}/>
+        <textarea ref={input} autoFocus id={inputId} aria-describedby={hintId} placeholder="What do you think?" rows={2} maxLength={3000} required readOnly={busy} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&event.keyCode!==229){event.preventDefault();send();}}}/>
         <div className="conversation-compose-footer"><span id={hintId}>{draft.length>2700?`${draft.length} / 3000`:'Enter to send · Shift + Enter for a new line'}</span><button type="submit" disabled={busy||!draft.trim()} aria-label={busy&&!editing&&!removing?'Sending comment':'Send comment'}>{busy&&!editing&&!removing?<LoaderCircle size={17} className="spin"/>:<Send size={17}/>}<span>{busy&&!editing&&!removing?'Sending…':'Send'}</span></button></div>
       </div>
-    </form>
+    </form>}
   </section>;
 }

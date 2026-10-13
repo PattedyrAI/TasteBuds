@@ -64,7 +64,7 @@ export async function createRating(userId: string, input: CreateRatingInput): Pr
     }
     await requireRatingPhotos(db,userId,value.groupId,photoIds,sourcePhotos);
     const template=await ratingTemplate(db,userId,value);
-    if(template.placeId!==prepared.placeId)throw new ServiceError(409,'Kategorimalen ble endret. Åpne vurderingen på nytt.');
+    if(template.placeId!==prepared.placeId)throw new ServiceError(409,'The category template was changed. Open the rating again.');
     let itemId = value.itemId;
     if (itemId) {
       const existing=await db.query<{brand:string|null}>('SELECT b.name AS brand FROM everrate.items i LEFT JOIN everrate.brands b ON b.id=i.brand_id AND b.group_id=i.group_id WHERE i.id=$1 AND i.group_id=$2 FOR SHARE OF i',[itemId,value.groupId]);
@@ -102,7 +102,7 @@ export async function updateRating(userId: string, ratingId: string, input: Upda
   return transaction(async db=> {
     const row = await mutableRating(db,userId,ratingId);
     const customFields=patch.customFields===undefined?row.custom_fields:parseTemplateValues(row.category_fields,patch.customFields);
-    for(const field of row.category_fields)if(field.type==='location'&&customFields[field.id]!==row.custom_fields[field.id])throw new ServiceError(400,'Stedet kan ikke flyttes ved å redigere en tidligere vurdering.');
+    for(const field of row.category_fields)if(field.type==='location'&&customFields[field.id]!==row.custom_fields[field.id])throw new ServiceError(400,'The place cannot be moved by editing an earlier rating.');
     const photoIds:string[]=patch.photoIds??(patch.photoId?[patch.photoId,...row.photo_ids.slice(1).filter((id:string)=>id!==patch.photoId)]:row.photo_ids);
     const photoId=photoIds[0];
     if (!photoId) throw new ServiceError(400,'Add a photo before correcting this historical rating');

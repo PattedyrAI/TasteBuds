@@ -19,7 +19,7 @@ describe('Google-posisjoner',()=>{
   });
   it('lekker ikke leverandørfeil eller nøkkel',async()=>{
     vi.stubEnv('GOOGLE_PLACES_SERVER_KEY','private-test-key');vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('private-test-key',{status:403})));
-    await expect(fetchPlaceLocation('place-1')).rejects.toMatchObject({status:502,message:'Kunne ikke hente plasseringen fra Google. Prøv igjen senere.'});
+    await expect(fetchPlaceLocation('place-1')).rejects.toMatchObject({status:502,message:'Could not fetch the location from Google. Try again later.'});
   });
   it('avviser ugyldig ID og manglende oppsett før nettverkskall',async()=>{
     const fetch=vi.fn();vi.stubGlobal('fetch',fetch);vi.stubEnv('GOOGLE_PLACES_SERVER_KEY','');

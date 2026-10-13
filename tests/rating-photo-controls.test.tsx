@@ -10,7 +10,7 @@ describe('review photo choices',()=>{
     expect(inputs.find(input=>input.includes('aria-label="Take a photo"'))).toContain('capture="environment"');
     expect(inputs.find(input=>input.includes('aria-label="Take a photo"'))).toContain('accept="image/*"');
     expect(inputs.find(input=>input.includes('aria-label="Upload a photo"'))).not.toContain('capture=');
-    expect(html).toMatch(/<button[^>]*type="button"[^>]*>[\s\S]*?Take a photo<\/button>/);
-    expect(html).toMatch(/<button[^>]*type="button"[^>]*>[\s\S]*?Upload a photo<\/button>/);
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>(?:(?!<\/button>)[\s\S])*?Take photo<\/button>/);
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>(?:(?!<\/button>)[\s\S])*?Choose photo<\/button>/);
   });
 });

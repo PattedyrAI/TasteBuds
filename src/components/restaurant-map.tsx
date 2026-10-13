@@ -14,7 +14,7 @@ function MapCanvas({data,pins,selected,onSelect}:{data:MapData;pins:RestaurantPi
   const fit=()=>{if(!sdk.current||!map.current)return;const bounds=new sdk.current.LatLngBounds();for(const pin of pins)if(pin.location)bounds.extend(pin.location);if(!bounds.isEmpty())map.current.fitBounds(bounds,64);};
   useEffect(()=>{
     let active=true;const host=element.current;
-    const failed=()=>setError('Google Maps-oppsettet må kontrolleres. Stedene er fortsatt tilgjengelige i listen.');window.addEventListener('tastebuds-maps-error',failed);
+    const failed=()=>setError('Google Maps setup needs attention. Places are still available in the list.');window.addEventListener('tastebuds-maps-error',failed);
     void loadGoogleMaps(data.browserKey).then(library=>{
       if(!active||!host)return;sdk.current=library;
       map.current=new library.Map(host,{center:{lat:59.9139,lng:10.7522},zoom:11,mapId:data.mapId,gestureHandling:'cooperative',mapTypeControl:false,streetViewControl:false,fullscreenControl:true,clickableIcons:false});setReady(true);
@@ -36,7 +36,7 @@ function MapCanvas({data,pins,selected,onSelect}:{data:MapData;pins:RestaurantPi
     if(!initialFit.current&&places.size){fit();initialFit.current=true;}
     return()=>{for(const listener of listeners)listener.remove();for(const marker of markers.current)marker.map=null;markers.current=[];};
   },[ready,pins,selected]);
-  return <div className="restaurant-map-stage"><div ref={element} className="restaurant-map-canvas" role="region" aria-label="Kart med gruppens vurderinger"/>{!ready&&!error&&<p className="map-message" role="status">Laster kart…</p>}{error&&<p className="map-message error" role="alert">{error}</p>}<button className="button secondary map-fit" disabled={!ready} onClick={fit}><LocateFixed size={18}/>Vis alle treff</button></div>;
+  return <div className="restaurant-map-stage"><div ref={element} className="restaurant-map-canvas" role="region" aria-label="Map of the group's ratings"/>{!ready&&!error&&<p className="map-message" role="status">Loading map…</p>}{error&&<p className="map-message error" role="alert">{error}</p>}<button className="button secondary map-fit" disabled={!ready} onClick={fit}><LocateFixed size={18}/>Show all results</button></div>;
 }
 export function RestaurantMap({groupId,category:template,open}:{groupId:string;category:Category;open:(id:string)=>void}){
   const [data,setData]=useState<MapData|null>(null),[error,setError]=useState(''),[revision,setRevision]=useState(0);
@@ -50,22 +50,22 @@ export function RestaurantMap({groupId,category:template,open}:{groupId:string;c
   const visible=selected?pins.filter(pin=>pin.placeId===selected):pins;
   const reset=()=>{setSearch('');setMinimumScore(0);setFields({});setSelected(null);};
   return <section className="restaurant-map-view">
-    {error&&<div className="error" role="alert">{error}<button onClick={()=>setRevision(value=>value+1)}>Prøv igjen</button></div>}
-    {!data&&!error?<p role="status">Henter gruppens steder…</p>:data&&<>
-      <div className="map-filters"><label className="search"><Search size={18}/><input aria-label="Søk i kartet" value={search} onChange={event=>{setSearch(event.target.value);setSelected(null);}} placeholder="Søk etter navn eller feltverdi…"/></label>
-        <label>Gruppescore<select value={minimumScore} onChange={event=>{setMinimumScore(Number(event.target.value));setSelected(null);}}><option value={0}>Alle poengsummer</option>{[5,6,7,8,9].map(n=><option key={n} value={n}>{n}+ av 10</option>)}</select></label>
-        <button className="text-button" onClick={reset}>Nullstill filtre</button>
+    {error&&<div className="error" role="alert">{error}<button onClick={()=>setRevision(value=>value+1)}>Try again</button></div>}
+    {!data&&!error?<p role="status">Loading the group's places…</p>:data&&<>
+      <div className="map-filters"><label className="search"><Search size={18}/><input aria-label="Search the map" value={search} onChange={event=>{setSearch(event.target.value);setSelected(null);}} placeholder="Search by name or field value…"/></label>
+        <label>Group score<select value={minimumScore} onChange={event=>{setMinimumScore(Number(event.target.value));setSelected(null);}}><option value={0}>All scores</option>{[5,6,7,8,9].map(n=><option key={n} value={n}>{n}+ of 10</option>)}</select></label>
+        <button className="text-button" onClick={reset}>Reset filters</button>
       </div>
       <CategoryFieldFilters category={template} items={data.restaurants.map(pin=>pin.item)} value={fields} onChange={value=>{setFields(value);setSelected(null);}}/>
-      {!data.configured&&<p className="hint map-setup" role="status">Google Maps er ikke konfigurert ennå. Steder og vurderinger beholdes; kartet vises når oppsettet er klart.</p>}
-      {data.unavailableCount>0&&data.configured&&<p className="hint" role="status">{data.unavailableCount} oppføringer mangler tilgjengelig posisjon akkurat nå. De finnes fortsatt i listen.</p>}
+      {!data.configured&&<p className="hint map-setup" role="status">Google Maps is not configured yet. Places and ratings are kept; the map will show once setup is ready.</p>}
+      {data.unavailableCount>0&&data.configured&&<p className="hint" role="status">{data.unavailableCount} entries are missing an available position right now. They are still in the list.</p>}
       <div className="map-and-list">
         {data.configured&&<MapCanvas data={data} pins={pins} selected={selected} onSelect={setSelected}/>}
-        <div className="map-results"><div className="map-results-heading"><strong aria-live="polite">{pins.length} treff</strong>{selected&&<button className="text-button" onClick={()=>setSelected(null)}>Vis hele listen</button>}</div>
-          {visible.length===0?<div className="empty-state"><MapPin size={30}/><h2>{data.restaurants.length?'Ingen steder passer filtrene.':'Her kommer gruppens steder.'}</h2><p>{data.restaurants.length?'Prøv et annet filter.':'Velg en kategori med lokasjonsfelt når du legger til en vurdering.'}</p></div>:visible.map(pin=><article className="map-result" key={pin.item.id}>
-            <button className="map-result-open" onClick={()=>open(pin.item.id)}><span><strong>{pin.item.name}</strong><small>{pin.item.type} · {pin.item.raterCount} vurderere</small></span><Score value={pin.item.average}/></button>
+        <div className="map-results"><div className="map-results-heading"><strong aria-live="polite">{pins.length} results</strong>{selected&&<button className="text-button" onClick={()=>setSelected(null)}>Show the full list</button>}</div>
+          {visible.length===0?<div className="empty-state"><MapPin size={30}/><h2>{data.restaurants.length?'No places match the filters.':"The group's places will show up here."}</h2><p>{data.restaurants.length?'Try a different filter.':'Choose a category with a location field when adding a rating.'}</p></div>:visible.map(pin=><article className="map-result" key={pin.item.id}>
+            <button className="map-result-open" onClick={()=>open(pin.item.id)}><span><strong>{pin.item.name}</strong><small>{pin.item.type} · {pin.item.raterCount} raters</small></span><Score value={pin.item.average}/></button>
             <ReviewFieldValues fields={pin.item.categoryFields||[]} values={pin.item.customFields||{}}/>
-            {!pin.location&&<small className="muted">Posisjon utilgjengelig</small>}
+            {!pin.location&&<small className="muted">Position unavailable</small>}
           </article>)}
         </div>
       </div>

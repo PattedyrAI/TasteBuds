@@ -1,13 +1,21 @@
 'use client';
-import {useId,useState} from 'react';
-import {ChevronDown} from 'lucide-react';
 import type {Item} from '@/lib/contracts';
-import {rankCategories,visibleCategories,type CategorySummary} from './catalog-presentation';
-import {categoryStyle} from './category-style';
-export function CategoryFilters({items,value,onChange}:{items:Item[];value:string|null;onChange:(value:string|null)=>void}){
- const [expanded,setExpanded]=useState(false),id=useId(),categories=rankCategories(items);
- // Keep five slots when collapsed, including the selected category. Extra buttons stay put while expanded.
- const choices=visibleCategories(categories,false,expanded?'':value),visible=choices.length>5?[...choices.slice(0,4),choices[5]]:choices,extra=categories.filter(c=>!visible.includes(c));
- const chip=(category:CategorySummary)=><button key={category.type===null?'unassigned':`type:${category.type}`} aria-pressed={value===category.type} className={`category-chip ${value===category.type?'selected':''}`} style={categoryStyle(category.type)} onClick={()=>onChange(category.type)}><span className="category-dot" aria-hidden="true"/>{category.type??'Unsorted'} <span>{category.tastingCount} {category.tastingCount===1?'tasting':'tastings'}</span></button>;
- return <div className="category-filters"><div className="category-filter-top"><div className="type-tabs" role="group" aria-label="Filter by category"><button aria-pressed={value===''} className={value===''?'selected':''} onClick={()=>onChange('')}>Everything <span>{items.length} items</span></button>{visible.map(chip)}</div>{extra.length>0&&<button className="text-button category-toggle" aria-expanded={expanded} aria-controls={id} onClick={()=>setExpanded(v=>!v)}>{expanded?'Show less':`Show more (${extra.length})`}<ChevronDown size={16}/></button>}</div><div className={`category-expansion ${expanded?'is-expanded':''}`} aria-hidden={!expanded} inert={!expanded} id={id}><div><div className="type-tabs category-extra" role="group" aria-label="More categories">{extra.map(chip)}</div></div></div></div>;
+import {rankCategories} from './catalog-presentation';
+import {sections,sectionFor,type Section} from '../domain/category-taxonomy';
+
+/** Two levels, always in the same place: Food / Drinks / Other, then that section's categories by popularity. */
+export function CategoryFilters({items,section,onSection,value,onChange}:{items:Item[];section:Section|'';onSection:(value:Section|'')=>void;value:string|null;onChange:(value:string|null)=>void}){
+ const counts=new Map(sections.map(s=>[s,items.filter(i=>sectionFor(i.type,i.broadCategory)===s).length]));
+ const inSection=section?items.filter(i=>sectionFor(i.type,i.broadCategory)===section):items;
+ const categories=rankCategories(inSection);
+ return <div className="category-filters">
+  <div className="segmented-control" role="group" aria-label="Section">
+   <button type="button" aria-pressed={section===''} className={section===''?'selected':''} onClick={()=>{onSection('');onChange('');}}>All</button>
+   {sections.filter(s=>counts.get(s)).map(s=><button type="button" key={s} aria-pressed={section===s} className={section===s?'selected':''} onClick={()=>{onSection(s);onChange('');}}>{s}</button>)}
+  </div>
+  {categories.length>0&&<div className="chip-row scroll" role="group" aria-label="Category">
+   <button type="button" aria-pressed={value===''} className={`chip${value===''?' selected':''}`} onClick={()=>onChange('')}>All {section?section.toLowerCase():'categories'} <span className="chip-count">{inSection.length}</span></button>
+   {categories.map(c=><button type="button" key={c.type??'unsorted'} aria-pressed={value===c.type} className={`chip${value===c.type?' selected':''}`} onClick={()=>onChange(value===c.type?'':c.type)}>{c.type??'Unsorted'} <span className="chip-count">{c.items.length}</span></button>)}
+  </div>}
+ </div>;
 }
