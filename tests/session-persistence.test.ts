@@ -1,5 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {NextRequest} from 'next/server';
+import {createChunks} from '@supabase/ssr';
 import {proxy,config} from '../src/proxy';
 
 const authId='11111111-1111-4111-8111-111111111111';
@@ -53,6 +54,18 @@ describe('persistent returning sessions',()=>{
     expect(response.headers.has('location')).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it('removes old cookie chunks when refresh shrinks the saved session',async()=>{
+    const old={...session(Math.floor(Date.now()/1000)-3600),user:{...user,user_metadata:{large:'x'.repeat(15000)}}};
+    const chunks=createChunks('sb-example-auth-token','base64-'+Buffer.from(JSON.stringify(old)).toString('base64url'));
+    expect(chunks.length).toBeGreaterThan(1);
+    const incoming=new NextRequest('https://tastebuds.example/',{headers:{cookie:chunks.map(c=>c.name+'='+c.value).join('; ')}});
+    const response=await proxy(incoming);
+    expect(response.headers.get('location')).toBe('https://tastebuds.example/app');
+    for(const chunk of chunks){
+      expect(response.cookies.get(chunk.name)).toMatchObject({value:'',maxAge:0});
+    }
+    expect(response.cookies.get('sb-example-auth-token')?.maxAge).toBe(400*86400);
+  });
   it('does not redirect an invalid session into the app',async()=>{
     currentUser=null;
     const response=await proxy(request('/',Math.floor(Date.now()/1000)+3600));
@@ -67,6 +80,15 @@ describe('persistent returning sessions',()=>{
   });
   it('does not start a return/login loop for a non-Discord identity',async()=>{
     currentUser={...user,identities:[{id:'other-provider',user_id:authId,provider:'email'}]};
+    expect((await proxy(request('/',Math.floor(Date.now()/1000)+3600))).headers.has('location')).toBe(false);
+  });
+  it.each([
+    {identities:[]},
+    {identities:[{...user.identities[0],id:'invalid-id'}]},
+    {identities:[{...user.identities[0],user_id:'22222222-2222-4222-8222-222222222222'}]},
+    {identities:[...user.identities,{...user.identities[0],id:'900000000000000102'}]},
+  ])('does not redirect an untrusted Discord identity set',async({identities})=>{
+    currentUser={...user,identities};
     expect((await proxy(request('/',Math.floor(Date.now()/1000)+3600))).headers.has('location')).toBe(false);
   });
   it('allows the OAuth callback to complete even with an existing session',async()=>{
