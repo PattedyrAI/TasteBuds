@@ -1,6 +1,6 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn()}));
-vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:mocks.getUser}})}));
+vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>mocks.getUser()}));
 vi.mock('../src/server/service',()=>({ensureUser:mocks.ensureUser}));
 import {requireUser} from '../src/server/auth';
 const authId='11111111-1111-4111-8111-111111111111',canonical='22222222-2222-4222-8222-222222222222',provider='900000000000000101';

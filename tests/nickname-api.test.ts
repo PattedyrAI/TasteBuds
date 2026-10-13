@@ -1,6 +1,6 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn(),updateNickname:vi.fn()}));
-vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:mocks.getUser}})}));
+vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>mocks.getUser()}));
 vi.mock('../src/server/service',()=>({ensureUser:mocks.ensureUser,updateNickname:mocks.updateNickname}));
 import {PATCH} from '../src/app/api/[...path]/route';
 const authId='11111111-1111-4111-8111-111111111111',canonical='22222222-2222-4222-8222-222222222222';

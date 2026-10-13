@@ -1,6 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn(),createCategory:vi.fn(),updateCategory:vi.fn(),getMapsConfiguration:vi.fn(),getRestaurantMap:vi.fn()}));
-vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:mocks.getUser}})}));
+vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>mocks.getUser()}));
 vi.mock('../src/server/service',()=>({ensureUser:mocks.ensureUser}));
 vi.mock('../src/server/services/categories',()=>({createCategory:mocks.createCategory,updateCategory:mocks.updateCategory,getMapsConfiguration:mocks.getMapsConfiguration}));
 vi.mock('../src/server/services/restaurants',()=>({getRestaurantMap:mocks.getRestaurantMap}));
