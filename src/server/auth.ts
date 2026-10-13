@@ -1,4 +1,4 @@
-import { authClient } from '@/lib/supabase/server';
+import { sessionUser } from '@/lib/supabase/server';
 import { authTemporarilyUnavailable } from '@/lib/supabase/auth-errors';
 import { ensureUser } from './service';
 import {ZodError} from 'zod';
@@ -7,8 +7,7 @@ export class HttpError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 export async function requireUser() {
-  const client=await authClient();
-  const {data:{user},error}=await client.auth.getUser();
+  const {data:{user},error}=await sessionUser();
   if(authTemporarilyUnavailable(error))throw new HttpError('Sign-in is temporarily unavailable. Please try again.',503);
   if(error || !user) throw new HttpError('Sign in to continue.',401);
   const identities=user.identities?.filter(identity=>identity.provider==='discord')||[];

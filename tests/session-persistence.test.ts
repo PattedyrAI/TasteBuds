@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {AuthRetryableFetchError} from '@supabase/supabase-js';
 import {proxy,config} from '../src/proxy';
 const authMocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn()}));
-vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:authMocks.getUser}})}));
+vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>authMocks.getUser()}));
 vi.mock('../src/server/service',()=>({ensureUser:authMocks.ensureUser}));
 vi.mock('../src/components/app-client',()=>({AppClient:()=>null}));
 vi.mock('next/navigation',()=>({redirect:(url:string)=>{throw new Error('redirect:'+url);}}));
@@ -36,7 +36,7 @@ describe('persistent returning sessions',()=>{
       throw new Error('Unexpected Auth request');
     }));
   });
-  afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
+  afterEach(()=>{vi.useRealTimers();vi.unstubAllEnvs();vi.unstubAllGlobals();});
 
   it('includes the welcome page in session refresh routing',()=>{
     expect(config.matcher).toContain('/');
@@ -96,6 +96,19 @@ describe('persistent returning sessions',()=>{
     expect(response.headers.has('location')).toBe(false);
     expect(response.cookies.getAll()).toEqual([]);
     expect(incoming.cookies.get('sb-example-auth-token')?.value).toBe(before);
+  });
+  it.each([429,500,501,502,503,504,505,507,599])('keeps an expired access token and its refresh session after transient refresh HTTP %s',async status=>{
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({msg:'Temporary Auth failure'},{status})));
+    const incoming=request('/api/bootstrap',Math.floor(Date.now()/1000)-3600);
+    const before=incoming.cookies.get('sb-example-auth-token')?.value;
+    const pending=proxy(incoming);
+    await vi.runAllTimersAsync();
+    const response=await pending;
+    expect(response.cookies.getAll()).toEqual([]);
+    expect(incoming.cookies.get('sb-example-auth-token')?.value).toBe(before);
+    expect(response.headers.has('location')).toBe(false);
+    vi.useRealTimers();
   });
   it('does not start a return/login loop for a non-Discord identity',async()=>{
     currentUser={...user,identities:[{id:'other-provider',user_id:authId,provider:'email'}]};

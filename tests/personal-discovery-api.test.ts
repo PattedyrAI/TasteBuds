@@ -1,6 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn(),saveItem:vi.fn(),getTasteInsights:vi.fn()}));
-vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:mocks.getUser}})}));
+vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>mocks.getUser()}));
 vi.mock('../src/server/service',()=>({ensureUser:mocks.ensureUser,saveItem:mocks.saveItem,getTasteInsights:mocks.getTasteInsights}));
 import {GET,POST,DELETE} from '../src/app/api/[...path]/route';
 const authId='11111111-1111-4111-8111-111111111111',canonical='22222222-2222-4222-8222-222222222222',itemId='33333333-3333-4333-8333-333333333333';
