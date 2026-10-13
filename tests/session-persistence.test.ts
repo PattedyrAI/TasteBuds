@@ -110,6 +110,25 @@ describe('persistent returning sessions',()=>{
     expect(response.headers.has('location')).toBe(false);
     vi.useRealTimers();
   });
+  it.each([429,505,507,599])('preserves sessions when transient refresh HTTP %s has an HTML body',async status=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response('<html>Temporary gateway failure</html>',{status,headers:{'Content-Type':'text/html'}})));
+    const incoming=request('/api/bootstrap',Math.floor(Date.now()/1000)-3600);
+    const before=incoming.cookies.get('sb-example-auth-token')?.value;
+    const response=await proxy(incoming);
+    expect(response.cookies.getAll()).toEqual([]);
+    expect(incoming.cookies.get('sb-example-auth-token')?.value).toBe(before);
+  });
+  it('persists a successful refresh even when the following user lookup is rate limited',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>String(input).includes('/token?')
+      ?Response.json({...session(Math.floor(Date.now()/1000)+3600),access_token:'new-access',refresh_token:'rotated-refresh'})
+      :Response.json({msg:'Rate limited'},{status:429})));
+    const incoming=request('/api/bootstrap',Math.floor(Date.now()/1000)-3600);
+    const response=await proxy(incoming);
+    const saved=response.cookies.get('sb-example-auth-token');
+    expect(saved?.maxAge).toBe(400*86400);
+    expect(JSON.parse(Buffer.from(saved!.value.slice(7),'base64url').toString()).refresh_token).toBe('rotated-refresh');
+    expect(response.headers.has('location')).toBe(false);
+  });
   it('does not start a return/login loop for a non-Discord identity',async()=>{
     currentUser={...user,identities:[{id:'other-provider',user_id:authId,provider:'email'}]};
     expect((await proxy(request('/',Math.floor(Date.now()/1000)+3600))).headers.has('location')).toBe(false);
