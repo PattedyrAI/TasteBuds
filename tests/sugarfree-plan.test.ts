@@ -21,10 +21,24 @@ describe('sugarfree review classification', () => {
     expect(classifySugarfreeItem(item({variant})))
       .toMatchObject({classification: 'needs-normalisation', proposed: {name: 'Original', variant: 'Sugarfree'}});
   });
-  it('strips Monster Zero only in the established Zero Ultra line', () => {
+  it('keeps the printed Monster Zero Ultra name and only adds the sugar-free variant', () => {
     expect(classifySugarfreeItem(item({name: 'Zero Ultra'})))
-      .toMatchObject({classification: 'needs-normalisation', proposed: {name: 'Ultra', variant: 'Sugarfree'}});
-    expect(classifySugarfreeItem(item({name: 'Monster Zero Ultra'})).proposed?.name).toBe('Monster Ultra');
+      .toMatchObject({classification: 'needs-normalisation', proposed: {name: 'Zero Ultra', variant: 'Sugarfree'}});
+    expect(classifySugarfreeItem(item({name: 'Monster Zero Ultra'})).proposed?.name).toBe('Monster Zero Ultra');
+  });
+  it.each(['Ultra Fiesta Mango', 'Ultra Blue Hawaiian', 'Ultra Red White And Blue Razz'])('treats every Monster Ultra flavour as the sugar-free line: %s', name => {
+    expect(classifySugarfreeItem(item({name}))).toMatchObject({classification: 'known-sugarfree-product-line', proposed: {name, variant: 'Sugarfree'}});
+  });
+  it('scopes range names to their brand', () => {
+    expect(classifySugarfreeItem(item({brand: 'Rockstar', name: 'Pure Zero Silver Ice'})).classification).toBe('known-sugarfree-product-line');
+    expect(classifySugarfreeItem(item({brand: 'NOS', name: 'Zero'})).classification).toBe('known-sugarfree-product-line');
+    expect(classifySugarfreeItem(item({brand: 'Powerking', name: 'Zero'})).classification).toBe('unknown');
+    expect(classifySugarfreeItem(item({brand: 'Burn', name: 'Ultra Citrus'})).classification).toBe('unknown');
+  });
+  it('marks zero-sugar brands for review without touching other brands', () => {
+    expect(classifySugarfreeItem(item({brand: 'Celsius', name: 'Sparkling Orange'}))).toMatchObject({classification: 'known-sugarfree-brand', proposed: {name: 'Sparkling Orange', variant: 'Sugarfree'}});
+    expect(classifySugarfreeItem(item({brand: 'Celsius', name: 'Peach Mango', variant: 'Sugarfree'})).classification).toBe('canonical-sugarfree');
+    expect(classifySugarfreeItem(item({brand: 'Black Rifle', name: 'Energy Freedom Punch'})).classification).toBe('canonical-regular');
   });
   it.each(['Ultra Paradise', 'Ultra White', 'Monster Ultra Sunrise'])('recognizes brand-scoped Monster line %s', name => {
     expect(classifySugarfreeItem(item({name})))
@@ -53,8 +67,8 @@ describe('sugarfree review classification', () => {
       expect(classifySugarfreeItem(item(patch))).toMatchObject({classification: 'unknown', proposed: null});
     }
   });
-  it('does not match partial words or unsupported Ultra product names', () => {
-    for (const name of ['Sugarfreedom', 'Zeroes', 'Ultra Mystery', 'Not Ultra Paradise']) {
+  it('does not match partial words or Ultra outside the start of a Monster name', () => {
+    for (const name of ['Sugarfreedom', 'Zeroes', 'Ultrafresh', 'Not Ultra Paradise']) {
       expect(classifySugarfreeItem(item({name})).proposed).toBeNull();
     }
   });

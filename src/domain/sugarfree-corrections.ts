@@ -2,7 +2,7 @@ import {SUGARFREE_VARIANT, isSugarfree} from './energy-drinks';
 import {identityKey} from './ratings';
 
 export type SugarfreeReviewItem = {id: string; groupId: string; name: string; brand: string | null; variant: string | null};
-export type SugarfreeClassification = 'canonical-sugarfree' | 'canonical-regular' | 'needs-normalisation' | 'known-sugarfree-product-line' | 'unknown';
+export type SugarfreeClassification = 'canonical-sugarfree' | 'canonical-regular' | 'needs-normalisation' | 'known-sugarfree-product-line' | 'known-sugarfree-brand' | 'unknown';
 export type SugarfreeReview = {
   item: SugarfreeReviewItem;
   classification: SugarfreeClassification;
@@ -25,16 +25,25 @@ const exactVariant = /^(?:sugar free|sugarfree|zero(?: sugar)?|no sugar|sukkerfr
  * Red Bull Zero and Sugarfree are distinct formulations: never collapse their names.
  */
 export const KNOWN_SUGARFREE_PRODUCT_LINES = [
-  {brand: 'Monster', names: ['ultra', 'zero ultra', 'ultra white', 'ultra paradise', 'ultra sunrise']},
-  {brand: 'Red Bull', names: ['zero', 'sugarfree', 'sugar free']},
+  {brand: 'Monster', names: ['ultra', 'zero ultra', 'ultra white', 'ultra paradise', 'ultra sunrise'], prefixes: ['ultra ']},
+  {brand: 'Red Bull', names: ['zero', 'sugarfree', 'sugar free'], prefixes: []},
+  // Range names that are themselves the sugar-free line (lead review 2026-10-13, TKT-9324).
+  {brand: 'Rockstar', names: ['pure zero'], prefixes: ['pure zero ']},
+  {brand: 'NOS', names: ['zero'], prefixes: []},
 ] as const;
+
+/** Brands whose whole current range is marketed as zero sugar. Lead knowledge, NOT source-checked: every row stays a review item. */
+export const ZERO_SUGAR_BRANDS = ['Celsius', 'Ghost', 'Bang', 'Reign', 'Alani Nu', 'C4', 'Prime'] as const;
+function zeroSugarBrand(brand: string | null): boolean {
+  return !!brand && ZERO_SUGAR_BRANDS.some(name => words(name) === words(brand));
+}
 
 function knownLine(brand: string | null, name: string): boolean {
   if (!brand) return false;
   const brandKey = words(brand);
   const product = words(name).replace(brandKey === 'monster' ? /^monster(?: energy)?\s+/ : /^red\s*bull\s+/, '');
   return KNOWN_SUGARFREE_PRODUCT_LINES.some(line => words(line.brand) === brandKey &&
-    (line.names as readonly string[]).includes(product));
+    ((line.names as readonly string[]).includes(product) || (line.prefixes as readonly string[]).some(prefix => product.startsWith(prefix))));
 }
 
 export function classifySugarfreeItem(item: SugarfreeReviewItem): SugarfreeReview {
@@ -51,9 +60,10 @@ export function classifySugarfreeItem(item: SugarfreeReviewItem): SugarfreeRevie
     : item.name.trim();
   const productLine = knownLine(item.brand, item.name);
   // Bare Zero is not a universal sugar claim. Only the explicit Monster Zero Ultra alias is stripped.
+  // "Zero Ultra" is the printed product name, so it is kept whole and only gains the sugar-free variant.
   const monsterZeroUltra = words(item.brand || '') === 'monster' &&
     /^(?:monster(?: energy)? )?zero ultra$/.test(words(item.name));
-  const proposedName = monsterZeroUltra ? cleanName.replace(/\bzero\s+/i, '') : cleanName;
+  const proposedName = monsterZeroUltra ? item.name.trim() : cleanName;
   if (!proposedName) return productLine
     ? result('known-sugarfree-product-line', 'Keep the complete product-line name to avoid an empty identity; review required', item.name.trim())
     : result('unknown', 'Removing the claim would empty the product name; human/photo review required');
@@ -61,6 +71,7 @@ export function classifySugarfreeItem(item: SugarfreeReviewItem): SugarfreeRevie
     return result('needs-normalisation', 'Explicit sugarfree claim; review proposed canonical identity', proposedName);
   }
   if (productLine) return result('known-sugarfree-product-line', 'Manufacturer-listed sugarfree product line; review required', item.name.trim());
+  if (zeroSugarBrand(item.brand)) return result('known-sugarfree-brand', 'Brand range marketed as zero sugar; source not checked, review required', item.name.trim());
   if (/\b(?:zero|ultra)\b/i.test(item.name) || !item.brand?.trim()) {
     return result('unknown', 'Ambiguous product name or missing brand; human/photo review required');
   }
