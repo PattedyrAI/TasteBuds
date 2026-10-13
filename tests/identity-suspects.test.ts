@@ -21,8 +21,9 @@ describe('identity suspect heuristics',()=>{
     expect(identitySuspectFlags(item('Wine'),{knownTypeNames:['Wine']})).toEqual([]);
     expect(identitySuspectFlags(item('Yuvy'),{knownTypeNames:['Wine']})).toContainEqual({code:'non_product_token',severity:'medium'});
   });
-  it('makes the incomplete energy-brand dictionary a medium review signal',()=>{
-    expect(identitySuspectFlags(item('Ultra','Acme','Energy drinks'))).toContainEqual({code:'energy_brand_unrecognized',severity:'medium'});
+  it('flags an energy drink only when no brand is stored or readable from its name',()=>{
+    expect(identitySuspectFlags(item('Ultra','Acme','Energy drinks'))).not.toContainEqual({code:'energy_brand_unrecognized',severity:'medium'});
+    expect(identitySuspectFlags(item('Ultra',null,'Energy drinks'))).toContainEqual({code:'energy_brand_unrecognized',severity:'medium'});
     expect(identitySuspectFlags(item('Ultra White','monster','energy drink'))).toEqual([]);
     expect(identitySuspectFlags(item('Monster Ultra White',null,'Energy drinks'))).toEqual([]);
   });
@@ -144,5 +145,16 @@ describe.skipIf(!fixtureUrl)('disposable identity suspect report',()=>{
       return query(...args);
     }) as typeof client.query;
     try{await reportIdentitySuspects(client);expect(observed).toEqual(['repeatable read','on']);}finally{client.query=query;}
+  });
+});
+
+describe('production false positives (TKT-9324 read-only run)',()=>{
+  it('accepts real energy brands that are not on the alias list',()=>{
+    for(const brand of ['Ryse','Rip It','Black Rifle','Bloom'])expect(identitySuspectFlags({name:'Original',brand,type:'Energy drinks'}).map(f=>f.code)).not.toContain('energy_brand_unrecognized');
+    expect(identitySuspectFlags({name:'left',brand:null,type:'Energy drinks'}).map(f=>f.code)).toContain('energy_brand_unrecognized');
+  });
+  it('does not flag a name that is its own category or common dish words',()=>{
+    for(const [name,type] of [['Burrito','Burritos'],['Gnocchi','Pasta'],['Tostones','Fried plantains'],['cheesesteak','Sandwiches']])expect(identitySuspectFlags({name,brand:null,type})).toEqual([]);
+    expect(identitySuspectFlags({name:'Yuvy',brand:null,type:'Pancakes'}).length).toBeGreaterThan(0);
   });
 });
