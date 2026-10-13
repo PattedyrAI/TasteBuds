@@ -1,4 +1,5 @@
 import { authClient } from '@/lib/supabase/server';
+import { authTemporarilyUnavailable } from '@/lib/supabase/auth-errors';
 import { ensureUser } from './service';
 import {ZodError} from 'zod';
 
@@ -8,6 +9,7 @@ export class HttpError extends Error {
 export async function requireUser() {
   const client=await authClient();
   const {data:{user},error}=await client.auth.getUser();
+  if(authTemporarilyUnavailable(error))throw new HttpError('Sign-in is temporarily unavailable. Please try again.',503);
   if(error || !user) throw new HttpError('Sign in to continue.',401);
   const identities=user.identities?.filter(identity=>identity.provider==='discord')||[];
   // GoTrue serializes provider_id as `id`; `identity_id` is its internal row UUID.

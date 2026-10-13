@@ -1,7 +1,17 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {NextRequest} from 'next/server';
 import {createChunks} from '@supabase/ssr';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {AuthRetryableFetchError} from '@supabase/supabase-js';
 import {proxy,config} from '../src/proxy';
+const authMocks=vi.hoisted(()=>({getUser:vi.fn(),ensureUser:vi.fn()}));
+vi.mock('../src/lib/supabase/server',()=>({authClient:async()=>({auth:{getUser:authMocks.getUser}})}));
+vi.mock('../src/server/service',()=>({ensureUser:authMocks.ensureUser}));
+vi.mock('../src/components/app-client',()=>({AppClient:()=>null}));
+vi.mock('next/navigation',()=>({redirect:(url:string)=>{throw new Error('redirect:'+url);}}));
+import {requireUser,api} from '../src/server/auth';
+import App from '../src/app/app/page';
 
 const authId='11111111-1111-4111-8111-111111111111';
 const user={id:authId,aud:'authenticated',role:'authenticated',app_metadata:{provider:'discord'},user_metadata:{},identities:[{id:'900000000000000101',user_id:authId,provider:'discord'}]};
@@ -78,6 +88,15 @@ describe('persistent returning sessions',()=>{
     expect(response.headers.has('location')).toBe(false);
     expect(response.cookies.get('sb-example-auth-token')?.maxAge).toBe(0);
   });
+  it('does not clear persistent cookies when the Auth service temporarily fails',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({msg:'Service unavailable'},{status:503})));
+    const incoming=request('/api/bootstrap',Math.floor(Date.now()/1000)+3600);
+    const before=incoming.cookies.get('sb-example-auth-token')?.value;
+    const response=await proxy(incoming);
+    expect(response.headers.has('location')).toBe(false);
+    expect(response.cookies.getAll()).toEqual([]);
+    expect(incoming.cookies.get('sb-example-auth-token')?.value).toBe(before);
+  });
   it('does not start a return/login loop for a non-Discord identity',async()=>{
     currentUser={...user,identities:[{id:'other-provider',user_id:authId,provider:'email'}]};
     expect((await proxy(request('/',Math.floor(Date.now()/1000)+3600))).headers.has('location')).toBe(false);
@@ -94,5 +113,37 @@ describe('persistent returning sessions',()=>{
   it('allows the OAuth callback to complete even with an existing session',async()=>{
     const response=await proxy(request('/auth/callback?code=provider-code',Math.floor(Date.now()/1000)+3600));
     expect(response.headers.has('location')).toBe(false);
+  });
+});
+
+describe('auth outages do not revoke a valid browser session',()=>{
+  afterEach(()=>{vi.resetAllMocks();vi.unstubAllGlobals();});
+  it.each([429,500,502,503])('returns retryable unavailability for Auth HTTP %s instead of a sign-out response',async status=>{
+    authMocks.getUser.mockResolvedValue({data:{user:null},error:{name:'AuthApiError',status}});
+    const response=await api(new Request('https://tastebuds.example/api/bootstrap'),async()=>({private:true}));
+    expect(response.status).toBe(503);
+    expect(await response.json()).not.toEqual({private:true});
+    expect(authMocks.ensureUser).not.toHaveBeenCalled();
+  });
+  it('preserves authentication denial for a truly missing session',async()=>{
+    authMocks.getUser.mockResolvedValue({data:{user:null},error:{name:'AuthSessionMissingError',status:400}});
+    await expect(requireUser()).rejects.toMatchObject({status:401});
+  });
+  it('keeps a network failure retryable instead of treating it as a logout',async()=>{
+    authMocks.getUser.mockResolvedValue({data:{user:null},error:new AuthRetryableFetchError('Temporary network failure',0)});
+    await expect(requireUser()).rejects.toMatchObject({status:503});
+  });
+  it('shows a retry page rather than a login redirect when Auth is unavailable',async()=>{
+    vi.stubGlobal('React',React);
+    authMocks.getUser.mockResolvedValue({data:{user:null},error:new AuthRetryableFetchError('Temporary outage',503)});
+    const html=renderToStaticMarkup(await App());
+    expect(html).toContain('Try again');
+    expect(html).toContain('href="/app"');
+    expect(html).not.toContain('Sign in');
+    expect(authMocks.ensureUser).not.toHaveBeenCalled();
+  });
+  it('still redirects a missing session to the welcome page',async()=>{
+    authMocks.getUser.mockResolvedValue({data:{user:null},error:{name:'AuthSessionMissingError',status:400}});
+    await expect(App()).rejects.toThrow('redirect:/');
   });
 });
