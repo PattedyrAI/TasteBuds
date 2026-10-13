@@ -411,3 +411,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .sidebar-bottom .icon-button:hover{background:#ffffff1f;color:#fff}
 @media(max-width:520px){.scale-bands li{font-size:12px}.scale-bands li span{display:none}}
 @media(max-width:760px){.workspace summary,.modal summary{min-height:44px}.text-button{min-width:44px;justify-content:center}.text-button.strong{min-width:0}}
+.settings-intro{margin:0 0 16px}
+.preference-switch{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:var(--r-md);border:1px solid var(--line);cursor:pointer;position:relative;font-weight:600}
+.preference-switch input{position:absolute;opacity:0;width:1px;height:1px}
+.preference-switch .switch{width:46px;height:28px;border-radius:99px;background:var(--line-strong);position:relative;flex-shrink:0;transition:background .2s}
+.preference-switch .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:var(--shadow-1);transition:transform .2s}
+.preference-switch input:checked+.switch{background:var(--tier-great)}
+.preference-switch input:checked+.switch::after{transform:translateX(18px)}
+.preference-switch input:focus-visible+.switch{outline:3px solid var(--focus);outline-offset:2px}
+/* Tastings and comments in item detail */
+.item-modal .tasting header .text-button{color:var(--ink);font-weight:700;font-size:var(--fs-md);padding:0;min-height:0;min-width:0;justify-content:flex-start}
+.item-modal .tasting header small{color:var(--muted)}
+.item-modal .tasting .review-conversation{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.conversation-open{min-height:40px}
+@media(max-width:760px){.item-modal .tasting header .text-button{min-height:44px}}
+/* Podium on phones: name, score and count only; brand and category tags don't fit three narrow columns. */
+@media(max-width:520px){
+  .podium-step .brand-label,.podium-step .podium-category,.podium-step .reviewer-bubbles{display:none}
+  .podium-step h3{font-size:var(--fs-sm);overflow-wrap:anywhere;hyphens:auto}
+}
+.item-modal .tasting header .text-button{min-height:28px}
+@media(max-width:760px){.item-modal .tasting header .text-button{min-height:44px;min-width:44px}.conversation-open{min-height:44px}}

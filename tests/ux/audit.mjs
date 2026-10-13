@@ -50,7 +50,9 @@ for(const [vpName,vp] of Object.entries(viewports)){
   const c=sessionCookie(1);await ctx.addCookies([{name:c.name,value:c.value,url:base}]);
   const page=await ctx.newPage();const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,160));});page.on('pageerror',e=>errors.push(String(e).slice(0,160)));
   const t0=Date.now();await page.goto(base+'/app');await page.waitForLoadState('networkidle');await page.waitForTimeout(800);
-  const res={loadMs:Date.now()-t0,screens:{},dialogs:{},flows:{}};
+  // Load cost of the signed-in app: JS/CSS bytes and largest contentful paint, from the browser's own timing APIs.
+  const load=await page.evaluate(()=>new Promise(resolve=>{let lcp=0;new PerformanceObserver(list=>{for(const e of list.getEntries())lcp=Math.max(lcp,e.startTime);}).observe({type:'largest-contentful-paint',buffered:true});setTimeout(()=>{const r=performance.getEntriesByType('resource');const kb=t=>Math.round(r.filter(e=>e.initiatorType===t||(t==='script'&&e.name.endsWith('.js'))||(t==='css'&&e.name.endsWith('.css'))).reduce((a,e)=>a+(e.encodedBodySize||0),0)/1024);resolve({lcpMs:Math.round(lcp),jsKB:kb('script'),cssKB:kb('css')});},300);}));
+  const res={loadMs:Date.now()-t0,load,screens:{},dialogs:{},flows:{}};
   const navTo=async rx=>{const btn=page.locator('nav button:visible, nav a:visible').filter({hasText:rx}).first();if(await btn.count()){await btn.click();await page.waitForTimeout(700);return true;}return false;};
   for(const [name,rx] of screens){
     // Old builds expose every view in the nav; newer ones nest some views and address them by URL.
@@ -97,6 +99,6 @@ for(const [vpName,vp] of Object.entries(viewports)){
 }
 await browser.close();
 const sum=v=>Object.values(report[v].screens).reduce((a,s)=>({axeSerious:a.axeSerious+(s.axeSerious||0),axeTotal:a.axeTotal+(s.axeTotal||0),smallTargets:a.smallTargets+(s.smallTargets||0),overflow:a.overflow+(s.horizontalOverflow?1:0),maxFontSizes:Math.max(a.maxFontSizes,s.fontSizes||0),maxColors:Math.max(a.maxColors,s.textColors||0),tinyText:a.tinyText+(s.tinyText||0)}),{axeSerious:0,axeTotal:0,smallTargets:0,overflow:0,maxFontSizes:0,maxColors:0,tinyText:0});
-report.summary={mobile:sum('mobile'),desktop:sum('desktop'),dialogs:{mobile:report.mobile.dialogs,desktop:report.desktop.dialogs},flows:{mobile:report.mobile.flows,desktop:report.desktop.flows},consoleErrors:report.mobile.consoleErrors.length+report.desktop.consoleErrors.length};
+report.summary={mobile:sum('mobile'),desktop:sum('desktop'),dialogs:{mobile:report.mobile.dialogs,desktop:report.desktop.dialogs},flows:{mobile:report.mobile.flows,desktop:report.desktop.flows},consoleErrors:report.mobile.consoleErrors.length+report.desktop.consoleErrors.length,load:{mobile:report.mobile.load,desktop:report.desktop.load}};
 writeFileSync(`${out}/report.json`,JSON.stringify(report,null,1));
 console.log(JSON.stringify(report.summary,null,1));

@@ -6,6 +6,7 @@ export const users=[
   {n:2,name:'Mia',discord:'100000000000000002'},
   {n:3,name:'Jonas',discord:'100000000000000003'},
   {n:4,name:'Sara',discord:'100000000000000004'},
+  {n:5,name:'Newcomer',discord:'100000000000000005'},
 ];
 export function userFor(n){
   const u=users.find(u=>u.n===Number(n));if(!u)return null;

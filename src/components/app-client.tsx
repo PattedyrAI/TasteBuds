@@ -58,7 +58,7 @@ export function AppClient(){
   const compareMember=compare&&compare.groupId===groupId?group?.members.find(m=>m.id===compare.personId&&m.id!==boot?.user.id)??null:null;
   const friendScores=useFriendScores(groupId,compareMember?{id:compareMember.id,name:compareMember.displayName}:null,revision);
   const comparePicker=(itemIds:string[])=>group&&boot?<FriendComparePicker members={group.members} viewerId={boot.user.id} value={compareMember?.id??''} onChange={personId=>setCompare(personId?{groupId,personId}:null)} scores={friendScores} itemIds={itemIds}/>:null;
-  const nicknameSaved=(user:Bootstrap['user'])=>{setBoot(previous=>previous?{...previous,user}:previous);setNotice('Your nickname has been updated.');refresh();};
+  const nicknameSaved=(user:Bootstrap['user'])=>{const first=boot?.user.nickname===null;setBoot(previous=>previous?{...previous,user}:previous);setNotice(first?`Welcome, ${user.nickname}!`:'Your nickname has been updated.');refresh();};
   const preferencesSaved=(user:Bootstrap['user'])=>{setBoot(previous=>previous?{...previous,user}:previous);setNotice('Your photo preference has been updated.');refresh();};
   const openPerson=(id:string|null)=>{setPersonId(id);setDetail(null);navigateTab('people');};
   async function openPersonalReview(ratingId:string,itemId:string,mode:'edit'|'rereview'){
