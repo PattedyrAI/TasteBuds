@@ -1,6 +1,6 @@
-import {canonicalBrand,normalizeReviewIdentity} from './brand-identity';
-import {canonicalItemType} from './item-types';
-import type {PhotoIdentity} from '../../scripts/analyze-photo-identities';
+import {canonicalBrand,normalizeReviewIdentity} from '../../src/domain/brand-identity';
+import {canonicalItemType} from '../../src/domain/item-types';
+import type {PhotoIdentity} from '../analyze-photo-identities';
 
 export const IDENTITY_CONFIDENCE_THRESHOLD=.9;
 export type IdentityInput={name:string;brand:string|null;type:string|null};

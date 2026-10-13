@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {identitySuspectFlags, IDENTITY_CONFIDENCE_THRESHOLD} from '../src/domain/identity-suspects';
+import {identitySuspectFlags, IDENTITY_CONFIDENCE_THRESHOLD} from '../scripts/lib/identity-suspects';
 import {assertIdentitySuspectsTarget, parseIdentityAnalysis, confidentIdentityPatch} from '../scripts/report-identity-suspects';
 import type {PhotoIdentity} from '../scripts/analyze-photo-identities';
 
