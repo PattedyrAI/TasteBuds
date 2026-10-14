@@ -25,3 +25,10 @@ describe('Matthew mode secret',()=>{
     expect(trackSecret('ATTHEW','W').matched).toBe(false);
   });
 });
+
+describe('other secret words',()=>{
+  it('matches a custom secret such as MCLAREN',()=>{
+    const r=[...'mclaren'].reduce((s,k)=>{const n=trackSecret(s.buffer,k,'MCLAREN');return {buffer:n.buffer,matched:s.matched||n.matched};},{buffer:'',matched:false});
+    expect(r.matched).toBe(true);
+  });
+});
