@@ -95,3 +95,8 @@
 /* McLaren P1 drift: one low-resolution canvas scaled up with hard pixels, above the cards and below dialogs. */
 .mclaren-drift{position:fixed;inset:0;width:100vw;height:100vh;z-index:30;pointer-events:none;image-rendering:pixelated}
 .mclaren-drift[hidden]{display:none}
+/* 720S cursor: only once JS has seen a real mouse, so touch and no-JS keep the native pointer. */
+:root[data-theme=matthew][data-car-cursor],:root[data-theme=matthew][data-car-cursor] *{cursor:none!important}
+:root[data-theme=matthew][data-car-cursor] :is(textarea,[contenteditable]:not([contenteditable=false]),input:not([type=checkbox],[type=radio],[type=range],[type=button],[type=submit],[type=reset],[type=file],[type=color])){cursor:text!important}
+.car-cursor{display:none}
+:root[data-theme=matthew][data-car-cursor] .car-cursor:not([hidden]){display:block;position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;background:url(/matthew/720s-frames.png) 0 0 no-repeat;image-rendering:pixelated;will-change:transform}

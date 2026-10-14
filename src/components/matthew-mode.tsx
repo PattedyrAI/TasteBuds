@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {McLarenDrift} from './mclaren-drift';
+import {CarCursor} from './car-cursor';
 
 const SECRET='MATTHEW';
 const STORAGE_KEY='tastebuds-matthew-mode';
@@ -47,6 +48,7 @@ export function MatthewMode(){
   return <>
     <div className="matthew-floaters" aria-hidden="true">{FLOATERS.map((can,i)=><span key={i} className={`matthew-can ${can}`}/>)}</div>
     <McLarenDrift/>
+    <CarCursor/>
     <div className="matthew-notice" role="status" aria-live="polite">{notice&&<span>{notice}</span>}</div>
   </>;
 }
