@@ -5,18 +5,18 @@ import {trackSecret} from './matthew-mode';
 /** Sprite strip: 8 turntable frames of a ChatGPT-drawn McLaren P1, bottom-aligned on a shared ground line. */
 const SHEET='/matthew/p1-frames.png';
 const FRAMES=8;
+const SCALE=2; // 110x50 sprite frames: about 220 CSS px of car
 const CLOCK_KEY='tastebuds-p1-clock';
 const FIRST_RUN_MS=5*60_000;
 const SKID_LIFE_MS=12_000;
+const deg=Math.PI/180;
 
 type Vec={x:number;z:number};
-type Routine={duration:number;path:(u:number,w:number)=>Vec;slip:(u:number)=>number};
-type Skid={x0:number;y0:number;x1:number;y1:number;born:number};
-type Puff={x:number;y:number;vx:number;vy:number;born:number;life:number;size:number;fire:boolean};
+export type Pose={x:number;z:number;heading:number;slip:number};
+type Routine={name:string;duration:number;at:(u:number,w:number)=>Vec;slip:(u:number,w:number)=>number};
 
-const deg=Math.PI/180;
 const smooth=(t:number)=>t<=0?0:t>=1?1:t*t*(3-2*t);
-/** Piecewise-smooth keyframes: [[u, value], ...]. */
+/** Piecewise-smooth keyframes: [[u, value], ...]. Zero slope at every key, so slip never jerks. */
 function keys(points:[number,number][]){
   return (u:number)=>{
     if(u<=points[0][0])return points[0][1];
@@ -26,32 +26,48 @@ function keys(points:[number,number][]){
 }
 
 /**
- * Each routine is a ground path (x across the page, z toward the viewer) plus a slip angle: how far the nose
- * points away from the direction of travel. Positive slip turns the nose toward the viewer.
+ * Donut: straight in along +x, two whole turns, straight out along +x. Whole turns keep the exit on the same
+ * tangent as the entry; distance follows one smooth speed curve (fast at the edges, slowest mid-donut).
  */
-const ROUTINES:Routine[]=[
-  { // Long sideways slide with a counter-flick.
-    duration:6800,
-    path:(u,w)=>({x:-130+(w+260)*(u+.05*Math.sin(2*Math.PI*u)),z:40*Math.sin(Math.PI*u)}),
-    slip:keys([[0,0],[.16,0],[.24,-48],[.5,-58],[.6,-10],[.68,40],[.8,34],[.9,0],[1,0]]),
-  },
-  { // Donut in the middle of the page: the car spins through every angle.
-    duration:8200,
-    path:(u,w)=>{
-      const cx=w*.5,r=46;
-      if(u<.3)return {x:-130+(cx+130)*smooth(u/.3*.85+.15*u/.3),z:0};
-      if(u<.72){const a=2*Math.PI*1.25*(u-.3)/.42;return {x:cx+r*Math.sin(a),z:r*(1-Math.cos(a))};}
-      const a=2*Math.PI*1.25,sx=cx+r*Math.sin(a),sz=r*(1-Math.cos(a));
-      const k=(u-.72)/.28;return {x:sx+(w+130-sx)*k,z:sz*(1-smooth(k))};
-    },
-    slip:keys([[0,0],[.24,0],[.32,72],[.7,78],[.78,20],[.86,0],[1,0]]),
-  },
-  { // S-curve with alternating drifts.
-    duration:6600,
-    path:(u,w)=>({x:-130+(w+260)*u,z:44*Math.sin(2*Math.PI*u)}),
-    slip:keys([[0,0],[.1,0],[.2,42],[.36,46],[.46,0],[.56,-46],[.74,-50],[.86,0],[1,0]]),
-  },
+function donut():Routine{
+  const r=46,turns=2,ease=.3;
+  const parts=(w:number)=>{const cx=w*.5,a=cx+130,b=2*Math.PI*r*turns,c=w+130-cx;return {cx,a,b,total:a+b+c};};
+  // Speed 1+ease*cos(2πu - π): fastest at entry and exit, slowest in the middle; continuous everywhere.
+  const dist=(u:number,total:number)=>total*(u+ease*Math.sin(2*Math.PI*u-Math.PI)/(2*Math.PI));
+  const at=(u:number,w:number):Vec=>{
+    const {cx,a,b,total}=parts(w),s=dist(u,total);
+    if(s<=a)return {x:-130+s,z:0};
+    if(s<=a+b){const t=(s-a)/r;return {x:cx+r*Math.sin(t),z:r*(1-Math.cos(t))};}
+    return {x:cx+(s-a-b),z:0};
+  };
+  // Slip follows the loop itself: ramps in as the car enters it and out before it leaves.
+  const slip=(u:number,w:number)=>{
+    const {a,b,total}=parts(w),f=dist(u,total);
+    const inLoop=smooth((f-(a-60))/90)*(1-smooth((f-(a+b-70))/110));
+    return (76+6*Math.sin(f/18))*inLoop;
+  };
+  return {name:'donut',duration:9400,at,slip};
+}
+
+/** Each routine: a ground path (x across the page, z toward the viewer) and a slip angle (nose vs travel). */
+export const ROUTINES:Routine[]=[
+  {name:'slide',duration:6800,
+    at:(u,w)=>({x:-130+(w+260)*(u+.05*Math.sin(2*Math.PI*u)/Math.PI),z:40*Math.sin(Math.PI*u)**2}),
+    slip:keys([[0,0],[.14,0],[.24,-50],[.48,-58],[.58,-6],[.66,38],[.76,30],[.88,0],[1,0]])},
+  donut(),
+  {name:'s-curve',duration:6800,
+    at:(u,w)=>({x:-130+(w+260)*u,z:44*Math.sin(Math.PI*u)**2*Math.sin(2*Math.PI*u)}),
+    slip:keys([[0,0],[.1,0],[.2,42],[.36,46],[.46,0],[.56,-46],[.72,-50],[.86,0],[1,0]])},
 ];
+
+/** Where the car is at progress u (0..1) on a page w units wide; mirror runs it right-to-left. */
+export function pose(routine:Routine,u:number,w:number,mirror:boolean):Pose{
+  const p=routine.at(u,w),e=.0015,a=routine.at(Math.max(0,u-e),w),b=routine.at(Math.min(1,u+e),w);
+  let travel=Math.atan2(b.z-a.z,b.x-a.x),x=p.x;
+  if(mirror){travel=Math.PI-travel;x=w-p.x;}
+  const slip=routine.slip(u,w)*deg*(mirror?-1:1);
+  return {x,z:p.z,heading:travel+slip,slip};
+}
 
 /** Nearest of the 8 turntable frames for a heading (0 = facing right, +90° = facing the viewer). */
 export function frameFor(heading:number){
@@ -59,74 +75,102 @@ export function frameFor(heading:number){
   return Math.round(d/45)%8;
 }
 
-function drawLine(ctx:CanvasRenderingContext2D,x0:number,y0:number,x1:number,y1:number,size:number){
-  // Bresenham on whole pixels keeps skidmarks as crisp as the sprites.
-  x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
-  const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let err=dx+dy;
-  for(let i=0;i<400;i++){ctx.fillRect(x0,y0,size,size);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}}
-}
+// 4x4 Bayer matrix: pixels drop out in a fixed ordered pattern, the classic 8-bit dissolve.
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const visible=(x:number,y:number,keep:number)=>BAYER[(y&3)*4+(x&3)]<keep*16;
+/** Packs #rrggbb into the little-endian RGBA word ImageData expects. */
+const rgba=(hex:string)=>{const n=parseInt(hex.slice(1),16);return (255<<24|(n&255)<<16|(n>>8&255)<<8|n>>16)>>>0;};
+const SKID=[rgba('#15110e'),rgba('#2e261f')],SHADOW=rgba('#0a0807');
+const SMOKE={hi:rgba('#f7f4ef'),mid:rgba('#d6d0c7'),lo:rgba('#9d958a')};
+const FIRE=[rgba('#fff3a0'),rgba('#ffb347'),rgba('#ff6a1f')];
+
+type Puff={x:number;y:number;vx:number;vy:number;born:number;life:number;r:number;fire:boolean};
 
 /** Runs one drift across the page. Resolves when the car has left and its skidmarks have worn off. */
 function runDrift(canvas:HTMLCanvasElement,sheet:HTMLImageElement,signal:{stopped:boolean}){
   return new Promise<void>(resolve=>{
-    const scale=2; // 110x50 sprite frames: about 220 CSS px of car
-    const W=Math.ceil(window.innerWidth/scale),H=Math.ceil(window.innerHeight/scale);
+    const W=Math.ceil(window.innerWidth/SCALE),H=Math.ceil(window.innerHeight/SCALE);
     canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext('2d')!;ctx.imageSmoothingEnabled=false;
+    // Ground (skids) and air (smoke) are raw pixel buffers composited under and over the car sprite.
+    const layer=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d')!;const img=g.createImageData(W,H);return {c,g,img,px:new Uint32Array(img.data.buffer)};};
+    const ground=layer(),air=layer();
     const fw=sheet.naturalWidth/FRAMES,fh=sheet.naturalHeight;
     const routine=ROUTINES[Math.floor(Math.random()*ROUTINES.length)];
     const mirror=Math.random()<.5;
-    const baseY=Math.round(H*(.5+Math.random()*.25));
-    const project=(p:Vec)=>({x:mirror?W-p.x:p.x,y:baseY+p.z*.45});
-    const skids:Skid[]=[],puffs:Puff[]=[];
-    let lastWheels:{x:number;y:number}[]|null=null,lastSlip=0,start=0,frame=0,shownFrame=0;
-    const L=fw*.33,T=11; // half wheelbase-ish and half track, in ground units
+    const baseY=Math.round(H*(.52+Math.random()*.22));
+    const skids=new Map<number,number>(); // pixel index -> time laid
+    const puffs:Puff[]=[];
+    let last:{x:number;y:number}[]|null=null,lastSlip=0,start=0,shown=-1;
+    const L=fw*.33,T=11;
+    // Tyre track: a 3x2 stamp per Bresenham step, so marks read as rubber rather than hairlines.
+    const stamp=(x:number,y:number,now:number)=>{for(let dy=0;dy<2;dy++)for(let dx=-1;dx<2;dx++){const X=x+dx,Y=y+dy;if(X>=0&&Y>=0&&X<W&&Y<H)skids.set(Y*W+X,now);}};
+    const track=(x0:number,y0:number,x1:number,y1:number,now:number)=>{
+      x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
+      const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let err=dx+dy;
+      for(let i=0;i<200;i++){stamp(x0,y0,now);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}}
+    };
+    const emit=(x:number,y:number,now:number,r:number)=>puffs.push({x:x+(Math.random()-.5)*4,y:y-1,vx:(Math.random()-.5)*.35,vy:-.1-Math.random()*.22,born:now,life:900+Math.random()*900,r,fire:false});
     const tick=(now:number)=>{
       if(signal.stopped)return resolve();
       if(!start)start=now;
       const u=(now-start)/routine.duration;
       ctx.clearRect(0,0,W,H);
-      // Skidmarks: stepped retro fade.
-      for(let i=skids.length-1;i>=0;i--){
-        const age=(now-skids[i].born)/SKID_LIFE_MS;if(age>=1){skids.splice(i,1);continue;}
-        ctx.globalAlpha=[.55,.4,.26,.12][Math.floor(age*4)];ctx.fillStyle='#0b0908';
-        drawLine(ctx,skids[i].x0,skids[i].y0,skids[i].x1,skids[i].y1,2);
+      // Ground: skidmarks dissolve in Bayer steps over their life; the lighter edge pixels go first.
+      ground.px.fill(0);
+      for(const [i,born] of skids){
+        const age=(now-born)/SKID_LIFE_MS;if(age>=1){skids.delete(i);continue;}
+        const x=i%W,y=(i/W)|0;if(visible(x,y,1-age))ground.px[i]=SKID[age>.45&&(x+y)&1?1:0];
       }
-      ctx.globalAlpha=1;
-      if(u<1){
-        const p=routine.path(u,W),q=routine.path(Math.min(1,u+.002),W);
-        let travel=Math.atan2(q.z-p.z,q.x-p.x);if(mirror)travel=Math.PI-travel;
-        const slip=routine.slip(u)*deg*(mirror?-1:1);
-        const heading=travel+slip;
-        const s=project(p);
-        // Rear wheels sit behind the centre along the heading; z is foreshortened like the path.
-        const back={x:-Math.cos(heading)*L,z:-Math.sin(heading)*L},side={x:-Math.sin(heading)*T,z:Math.cos(heading)*T};
-        const wheels=[1,-1].map(k=>({x:s.x+back.x+side.x*k,y:s.y+(back.z+side.z*k)*.45}));
-        const drifting=Math.abs(slip)>16*deg;
-        if(drifting&&lastWheels)wheels.forEach((w,i)=>skids.push({x0:lastWheels![i].x,y0:lastWheels![i].y,x1:w.x,y1:w.y,born:now}));
-        lastWheels=wheels;
-        if(drifting)for(const w of wheels)if(Math.random()<.7)puffs.push({x:w.x,y:w.y-1,vx:(Math.random()-.5)*.25,vy:-.12-Math.random()*.18,born:now,life:700+Math.random()*700,size:1+Math.random()*1.5,fire:false});
-        // A flick (slip changing fast) pops the exhaust.
-        if(Math.abs(slip-lastSlip)>1.4*deg&&Math.random()<.5){const ex=s.x+back.x*1.25,ey=s.y-fh*.35+back.z*.56;for(let i=0;i<3;i++)puffs.push({x:ex,y:ey,vx:back.x*.02+(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,born:now,life:160+Math.random()*120,size:1+Math.random(),fire:true});}
-        lastSlip=slip;
-        // Hysteresis: only change frame once the heading is clearly closer to the next one.
-        frame=frameFor(heading);
-        const shownCentre=shownFrame*45,diff=Math.abs((((heading/deg-shownCentre)%360)+540)%360-180);
-        if(frame!==shownFrame&&diff>27)shownFrame=frame;
-        // Shadow, then the car anchored bottom-centre on its ground point.
-        const shadow=Math.round(fw*(.38+.3*Math.abs(Math.cos(heading))));ctx.globalAlpha=.35;ctx.fillStyle='#000';ctx.fillRect(Math.round(s.x-shadow/2),Math.round(s.y-1),shadow,3);ctx.globalAlpha=1;
-        ctx.drawImage(sheet,shownFrame*fw,0,fw,fh,Math.round(s.x-fw/2),Math.round(s.y-fh),fw,fh);
+      const p=u<1?pose(routine,u,W,mirror):null;
+      if(p){
+        // Shadow: a dithered pixel oval under the car, half its pixels dropped like an old console shadow.
+        const rx=fw*(.19+.15*Math.abs(Math.cos(p.heading))),ry=3.2,cx=Math.round(p.x),cy=Math.round(baseY+p.z*.45);
+        for(let dy=-3;dy<=3;dy++)for(let dx=-Math.ceil(rx);dx<=Math.ceil(rx);dx++){
+          if((dx/rx)**2+(dy/ry)**2>1)continue;const X=cx+dx,Y=cy+dy;
+          if(X>=0&&Y>=0&&X<W&&Y<H&&visible(X,Y,.5))ground.px[Y*W+X]=SHADOW;
+        }
       }
-      // Smoke and exhaust fire.
-      for(let i=puffs.length-1;i>=0;i--){
-        const pf=puffs[i],age=(now-pf.born)/pf.life;if(age>=1){puffs.splice(i,1);continue;}
-        pf.x+=pf.vx;pf.y+=pf.vy;const size=Math.round(pf.size+age*(pf.fire?0:3));
-        ctx.globalAlpha=pf.fire?1:[.7,.5,.32,.16][Math.floor(age*4)];
-        ctx.fillStyle=pf.fire?(age<.4?'#fff3a0':'#ff8a3d'):(age<.3?'#e9e4dd':age<.6?'#bdb6ad':'#8d867d');
-        ctx.fillRect(Math.round(pf.x-size/2),Math.round(pf.y-size/2),size,size);
+      ground.g.putImageData(ground.img,0,0);ctx.drawImage(ground.c,0,0);
+      if(p){
+        const sx=p.x,sy=baseY+p.z*.45,h=p.heading;
+        const back={x:-Math.cos(h)*L,z:-Math.sin(h)*L},side={x:-Math.sin(h)*T,z:Math.cos(h)*T};
+        const wheels=[1,-1].map(k=>({x:sx+back.x+side.x*k,y:sy+(back.z+side.z*k)*.45}));
+        const slipDeg=Math.abs(p.slip)/deg;
+        if(slipDeg>14){
+          if(last)wheels.forEach((w,i)=>track(last![i].x,last![i].y,w.x,w.y,now));
+          // Smoke scales with how hard the car is sliding.
+          for(const w of wheels)if(Math.random()<Math.min(.95,slipDeg/60))emit(w.x,w.y,now,2+Math.random()*2.5+slipDeg/30);
+        }
+        last=wheels;
+        // A flick (slip changing fast) throws big puffs and pops the exhaust.
+        const flick=Math.abs(p.slip-lastSlip)/deg;lastSlip=p.slip;
+        if(flick>1.2){
+          for(const w of wheels)if(Math.random()<.6)emit(w.x,w.y,now,5+Math.random()*2);
+          if(Math.random()<.5){const ex=sx+back.x*1.2,ey=sy-fh*.38+back.z*.5;for(let i=0;i<3;i++)puffs.push({x:ex,y:ey,vx:back.x*.03+(Math.random()-.5)*.35,vy:(Math.random()-.5)*.3,born:now,life:150+Math.random()*130,r:1+Math.random()*1.5,fire:true});}
+        }
+        // Hysteresis: switch frame only once the heading is clearly nearer the next one.
+        const target=frameFor(h),off=Math.abs((((h/deg-shown*45)%360)+540)%360-180);
+        if(shown<0||(target!==shown&&off>27))shown=target;
+        // A one-pixel bounce while sliding sells the weight transfer.
+        const bob=slipDeg>14&&((now/90)|0)%2?1:0;
+        ctx.drawImage(sheet,shown*fw,0,fw,fh,Math.round(sx-fw/2),Math.round(sy-fh)-bob,fw,fh);
       }
-      ctx.globalAlpha=1;
-      if(u>=1&&!skids.length&&!puffs.length){ctx.clearRect(0,0,W,H);return resolve();}
+      // Air: round pixel clouds lit from the top left that grow, then dissolve.
+      air.px.fill(0);
+      for(let n=puffs.length-1;n>=0;n--){
+        const pf=puffs[n],age=(now-pf.born)/pf.life;if(age>=1){puffs.splice(n,1);continue;}
+        pf.x+=pf.vx;pf.y+=pf.vy;pf.vx*=.985;
+        const r=pf.fire?pf.r*(1-age*.5):pf.r*(.45+.55*Math.sqrt(age)),keep=pf.fire?1:Math.min(1,(1-age)*1.6);
+        const cx=Math.round(pf.x),cy=Math.round(pf.y),R=Math.ceil(r);
+        for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
+          if(dx*dx+dy*dy>r*r)continue;const X=cx+dx,Y=cy+dy;if(X<0||Y<0||X>=W||Y>=H||!visible(X,Y,keep))continue;
+          const light=(-dx-dy)/(r||1);
+          air.px[Y*W+X]=pf.fire?FIRE[age<.3?0:age<.6?1:2]:light>.45?SMOKE.hi:light<-.35?SMOKE.lo:SMOKE.mid;
+        }
+      }
+      air.g.putImageData(air.img,0,0);ctx.drawImage(air.c,0,0);
+      if(u>=1&&!skids.size&&!puffs.length){ctx.clearRect(0,0,W,H);return resolve();}
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
