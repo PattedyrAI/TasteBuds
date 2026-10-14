@@ -2,6 +2,7 @@
 import {ArrowRight,Camera,Layers,Bookmark,Trophy} from 'lucide-react';
 import type {FeedEntry,Item} from '@/lib/contracts';
 import {Avatar,Photo,Score} from './ui';
+import {isMatthew} from '../domain/matthew';
 import {groupFavourites,rankCategories} from './catalog-presentation';
 import {sections,sectionFor,type Section} from '../domain/category-taxonomy';
 
@@ -18,7 +19,7 @@ export function CollectionHome({items,feed,name,browse,open,add,showFeed,showIns
     </button>
     {items.length===0?<div className="empty-state"><Layers size={36}/><h2>Your collection starts with a photo.</h2><p>Categories and favourites appear here as your group rates things.</p></div>:<>
     {feed.length>0&&<section className="home-section"><div className="section-heading"><h2>Lately in the group</h2><button className="text-button" onClick={showFeed}>All activity <ArrowRight size={16}/></button></div>
-      <ul className="rail">{latestPerItem(feed).slice(0,10).map(r=><li key={r.id}><button type="button" className="rail-card" onClick={()=>open(r.itemId)}>
+      <ul className="rail">{latestPerItem(feed).slice(0,10).map(r=><li key={r.id}><button type="button" className="rail-card" data-matthew={isMatthew(r.author.displayName)||undefined} onClick={()=>open(r.itemId)}>
         <Photo id={r.photoId} name={r.itemName}/><span className="rail-card-score"><Score value={r.score}/></span>
         <span className="rail-card-copy">{r.brand&&<small>{r.brand}</small>}<strong>{r.itemName}</strong><span className="rail-card-who"><Avatar name={r.author.displayName} url={r.author.avatarUrl}/>{r.author.displayName}</span></span>
       </button></li>)}</ul></section>}

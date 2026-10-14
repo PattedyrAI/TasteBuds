@@ -86,4 +86,4 @@ export function Avatar({name,url,decorative=true}:{name:string;url:string|null;d
     {safeUrl&&failed!==safeUrl?<img src={safeUrl} alt="" referrerPolicy="no-referrer" onError={()=>setFailed(safeUrl)}/>:<span>{Array.from(name.trim())[0]?.toUpperCase()||'?'}</span>}
   </span>;
 }
-export function BrandMark(){return <><img className="brand-mark" src="/brand-mark.svg" alt="" width="32" height="32"/>TasteBuds</>;}
+export function BrandMark(){return <><img className="brand-mark" src="/brand-mark.svg" alt="" width="32" height="32"/><span className="wordmark-text">TasteBuds</span><span className="wordmark-matthew" aria-hidden="true">MATTHEW</span></>;}
