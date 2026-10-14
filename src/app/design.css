@@ -439,3 +439,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .rail-card-copy{position:relative;z-index:1;--outline:-1px -1px 0 #000c,1px -1px 0 #000c,-1px 1px 0 #000c,1px 1px 0 #000c,0 1px 6px #0009}
 .rail-card-copy,.rail-card-copy small,.rail-card-copy strong,.rail-card-who,.rail-card .rail-card-copy .brand-label{color:#fff;text-shadow:var(--outline)}
 .rail-card-who .avatar{text-shadow:none;box-shadow:0 0 0 1.5px #fff}
+/* Modal body sizes from its content (flex-basis auto), not 0%: Safari otherwise collapses the dialog to header + footer. */
+.modal-body{flex:1 1 auto;min-height:0}

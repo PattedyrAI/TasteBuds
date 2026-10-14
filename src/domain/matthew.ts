@@ -1,4 +1,4 @@
-/** Matthew mode highlights Matthew's ratings. Matches "Matthew" anywhere in a name, or "Matt" as a whole word. */
+/** Matthew mode highlights Matthew's ratings, matched by "Matthew" anywhere in the display name. */
 export function isMatthew(displayName:string|null|undefined){
-  return !!displayName&&/matthew|\bmatt\b/i.test(displayName);
+  return !!displayName&&/matthew/i.test(displayName);
 }
