@@ -1,20 +1,21 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {McLarenDrift} from './mclaren-drift';
 
 const SECRET='MATTHEW';
 const STORAGE_KEY='tastebuds-matthew-mode';
 /** Cans drifting behind the UI in Matthew mode; positions and timing live in matthew.css. */
-const FLOATERS=['peach','blue','blue','peach','peach','blue'];
+const FLOATERS=['peach','blue','blue','peach'];
 
 /** Runs before paint so a saved Matthew mode never flashes the light theme. */
 export const matthewModeBootScript=`try{if(localStorage.getItem('${STORAGE_KEY}')==='on')document.documentElement.dataset.theme='matthew'}catch(e){}`;
 
 /** Keeps the last letters typed; returns the new buffer and whether the secret word was completed. */
-export function trackSecret(buffer:string,key:string){
+export function trackSecret(buffer:string,key:string,secret=SECRET){
   if(key.length!==1)return {buffer,matched:false}; // Shift, CapsLock and other named keys
   if(!/^[a-z]$/i.test(key))return {buffer:'',matched:false};
-  const next=(buffer+key.toUpperCase()).slice(-SECRET.length);
-  return next===SECRET?{buffer:'',matched:true}:{buffer:next,matched:false};
+  const next=(buffer+key.toUpperCase()).slice(-secret.length);
+  return next===secret?{buffer:'',matched:true}:{buffer:next,matched:false};
 }
 
 function isEditable(target:EventTarget|null){
@@ -45,6 +46,7 @@ export function MatthewMode(){
   },[]);
   return <>
     <div className="matthew-floaters" aria-hidden="true">{FLOATERS.map((can,i)=><span key={i} className={`matthew-can ${can}`}/>)}</div>
+    <McLarenDrift/>
     <div className="matthew-notice" role="status" aria-live="polite">{notice&&<span>{notice}</span>}</div>
   </>;
 }
