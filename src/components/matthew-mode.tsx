@@ -3,6 +3,8 @@ import {useEffect,useState} from 'react';
 
 const SECRET='MATTHEW';
 const STORAGE_KEY='tastebuds-matthew-mode';
+/** Cans drifting behind the UI in Matthew mode; positions and timing live in matthew.css. */
+const FLOATERS=['peach','blue','blue','peach','peach','blue'];
 
 /** Runs before paint so a saved Matthew mode never flashes the light theme. */
 export const matthewModeBootScript=`try{if(localStorage.getItem('${STORAGE_KEY}')==='on')document.documentElement.dataset.theme='matthew'}catch(e){}`;
@@ -41,5 +43,8 @@ export function MatthewMode(){
     window.addEventListener('keydown',onKey);
     return()=>{window.removeEventListener('keydown',onKey);clearTimeout(hide);};
   },[]);
-  return <div className="matthew-notice" role="status" aria-live="polite">{notice&&<span>{notice}</span>}</div>;
+  return <>
+    <div className="matthew-floaters" aria-hidden="true">{FLOATERS.map((can,i)=><span key={i} className={`matthew-can ${can}`}/>)}</div>
+    <div className="matthew-notice" role="status" aria-live="polite">{notice&&<span>{notice}</span>}</div>
+  </>;
 }

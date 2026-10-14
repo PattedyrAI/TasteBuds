@@ -432,3 +432,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 .item-modal .tasting header .text-button{min-height:28px}
 @media(max-width:760px){.item-modal .tasting header .text-button{min-height:44px;min-width:44px}.conversation-open{min-height:44px}}
+
+/* Rail cards: the photo fills the card and the text sits on it, white with a dark outline so it reads on any photo. */
+.rail-card{aspect-ratio:3/5;align-content:end}
+.rail-card .item-photo,.rail-card .photo-placeholder{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
+.rail-card-copy{position:relative;z-index:1;--outline:-1px -1px 0 #000c,1px -1px 0 #000c,-1px 1px 0 #000c,1px 1px 0 #000c,0 1px 6px #0009}
+.rail-card-copy,.rail-card-copy small,.rail-card-copy strong,.rail-card-who,.rail-card .rail-card-copy .brand-label{color:#fff;text-shadow:var(--outline)}
+.rail-card-who .avatar{text-shadow:none;box-shadow:0 0 0 1.5px #fff}

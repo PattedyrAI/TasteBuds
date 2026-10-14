@@ -2,6 +2,7 @@
 import {ArrowUpRight} from 'lucide-react';
 import type {Item} from '@/lib/contracts';
 import {Avatar,Photo,Score} from './ui';
+import {isMatthew} from '../domain/matthew';
 import {isSugarfree} from '../domain/energy-drinks';
 import {BrandLabel} from './brand-label';
 import {SaveItemButton} from './discovery-actions';
@@ -10,7 +11,7 @@ import type {FriendScore} from './friend-compare';
 export function ReviewerBubbles({item}:{item:Item}){
  const reviewers=item.reviewers??[],remaining=Math.max(0,item.raterCount-reviewers.length);
  return <span className="reviewer-bubbles" role="img" aria-label={`${item.raterCount} ${item.raterCount===1?'reviewer':'reviewers'}${reviewers.length?`: ${reviewers.map(r=>r.displayName).join(', ')}${remaining?` and ${remaining} more`:''}`:''}`}>
-   {reviewers.map(r=><span className="reviewer-bubble" key={r.id} title={r.displayName}><Avatar name={r.displayName} url={r.avatarUrl}/></span>)}
+   {reviewers.map(r=><span className="reviewer-bubble" key={r.id} title={r.displayName} data-matthew={isMatthew(r.displayName)||undefined}><Avatar name={r.displayName} url={r.avatarUrl}/></span>)}
    {remaining>0&&<span className="reviewer-overflow">+{remaining}</span>}
    {item.raterCount===0&&<span className="reviewer-caption">No current reviewers</span>}
  </span>;

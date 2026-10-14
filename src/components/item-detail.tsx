@@ -12,6 +12,7 @@ import type {ItemDetail as Detail,Rating,User} from '@/lib/contracts';
 import {Avatar,Modal,Photo,Score,request,date} from './ui';
 import {scoreAgreement} from '../domain/score-scale';
 import {isSugarfree} from '../domain/energy-drinks';
+import {isMatthew} from '../domain/matthew';
 
 export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rereview,categories}:{id:string;user:User;owner:boolean;close:()=>void;rate:(item:Detail)=>void;edit:(rating:Rating,item:Detail)=>void;changed:()=>void;person?:(id:string)=>void;rereview:(rating:Rating,item:Detail)=>void;categories:string[]}){
   const [item,setItem]=useState<Detail|null>(null),[error,setError]=useState('');
@@ -56,7 +57,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
         <div className="button-row"><button className="button primary" disabled={busy}>Save item details</button><button type="button" className="button secondary" onClick={()=>setEditItem(false)}>Cancel</button></div>
       </form>}
       <h3 className="section-title">Every tasting <span className="muted">{item.ratings.length}</span></h3>{item.ratings.length===0&&<p className="muted">No ratings yet. Be the first to try it.</p>}
-      {item.ratings.map(r=><article className="tasting" key={r.id}>
+      {item.ratings.map(r=><article className="tasting" key={r.id} data-matthew={isMatthew(r.author.displayName)||undefined}>
         <header><Avatar name={r.author.displayName} url={r.author.avatarUrl}/><div><strong>{person?<button className="text-button" onClick={()=>person(r.author.id)}>{r.author.displayName}</button>:r.author.displayName}</strong><small>{date(r.tastedAt)}</small></div><Score value={r.score} words/></header><RatingStatus rating={r}/>
         <ReviewFieldValues fields={r.categoryFields||[]} values={r.customFields||{}}/>
         {r.note&&<p className="note">{r.note}</p>}
