@@ -85,6 +85,28 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
     }
   });
 
+  it('carries the app rereview status through the outbox to the delivered message', async () => {
+    const original=(await getPool().query('SELECT item_id,photo_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
+    const rereview=await createRating(ownerId,{groupId,itemId:original.item_id,photoId:original.photo_id,rereviewOf:ratingIds[0],score:8.5});
+    expect(rereview.isRereview).toBe(true);
+    const queued=(await getPool().query('SELECT payload FROM everrate.discord_outbox WHERE rating_id=$1',[rereview.id])).rows[0].payload;
+    expect(queued.isRereview).toBe(true);
+    const backdated=await createRating(ownerId,{groupId,itemId:original.item_id,photoId:original.photo_id,rereviewOf:ratingIds[0],score:6,tastedAt:'2020-01-01T00:00:00Z'});
+    expect(backdated.isRereview).toBe(false);
+    expect((await getPool().query('SELECT payload FROM everrate.discord_outbox WHERE rating_id=$1',[backdated.id])).rows[0].payload.isRereview).toBe(false);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:03Z' WHERE rating_id=$1",[rereview.id]);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:04Z' WHERE rating_id=$1",[backdated.id]);
+    const authors:string[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      authors.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)).embeds[0].author.name);
+      return Response.json({});
+    }));
+    await processDiscordOutbox();
+    await processDiscordOutbox();
+    expect(authors).toEqual(['Discord delivery test','Discord delivery test','Discord delivery test','Discord delivery test · REREVIEW','Discord delivery test']);
+    expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1',[rereview.id])).rows[0].status).toBe('sent');
+  });
+
   it('does not overwrite a newer claim when an old HTTP request completes', async () => {
     let posts = 0;
     vi.stubGlobal('fetch', vi.fn(async () => {

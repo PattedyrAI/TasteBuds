@@ -29,4 +29,12 @@ describe('Discord secrets and payloads',()=>{
     const embed=makeRatingEmbed({itemName:'Monster Ultra',brand:'Monster',displayName:'Pat',score:8,note:'  ',itemId:'item'},'https://example.com').embeds[0];
     expect(embed.title).toBe('Monster Ultra');expect(embed).not.toHaveProperty('description');expect(embed.color).toBe(0x2fb466);
   });
+  it.each(['Energy-drink review','Food review',undefined])('labels rereviews in the author line for %s',category=>{
+    const embed=makeRatingEmbed({itemName:'Peachberry',displayName:'bristiaan',score:8.5,itemId:'item',category,isRereview:true},'https://example.com').embeds[0];
+    expect(embed.author.name).toBe(category?`bristiaan · ${category} · REREVIEW`:'bristiaan · REREVIEW');
+  });
+  it.each([false,undefined])('does not label first reviews or older payloads as rereviews (%s)',isRereview=>{
+    const embed=makeRatingEmbed({itemName:'Peachberry',displayName:'bristiaan',score:8.5,itemId:'item',category:'Energy-drink review',isRereview},'https://example.com').embeds[0];
+    expect(embed.author.name).toBe('bristiaan · Energy-drink review');
+  });
 });
