@@ -6,7 +6,7 @@ import {requireMembership} from './service';
 import {discordItemMatchesRoute} from './discord-routing';
 
 export async function connectDiscord(userId:string,groupId:string,input:unknown){
-  z.uuid().parse(groupId);const v=z.object({url:z.string().max(400).optional(),enabled:z.boolean(),route:z.enum(['all','energy_drinks','food']).default('all'),categoryIds:z.array(z.uuid()).max(500).optional()}).strict().parse(input);
+  z.uuid().parse(groupId);const v=z.object({url:z.string().max(400).optional(),enabled:z.boolean(),route:z.enum(['all','energy_drinks','food','other']).default('all'),categoryIds:z.array(z.uuid()).max(500).optional()}).strict().parse(input);
   let encrypted:string|undefined;
   if(v.url){try{encrypted=encryptWebhook(v.url,process.env.DISCORD_ENCRYPTION_KEY||'');}catch{throw new HttpError('Enter a valid Discord channel webhook URL.',400);}}
   return transaction(async tx=>{
@@ -15,20 +15,20 @@ export async function connectDiscord(userId:string,groupId:string,input:unknown)
     await requireMembership(tx,userId,groupId,true);
     const existing=await tx.query<{category_ids:string[]}>('SELECT category_ids FROM everrate.discord_connections WHERE group_id=$1 AND route=$2',[groupId,v.route]);
     const categoryIds=[...new Set(v.categoryIds??existing.rows[0]?.category_ids??[])];
-    if(v.route==='all'&&categoryIds.length)throw new HttpError('The all-reviews connection cannot filter categories.',400);
+    if((v.route==='all'||v.route==='other')&&categoryIds.length)throw new HttpError('This connection cannot filter categories.',400);
     if(v.route==='energy_drinks'&&v.enabled&&!categoryIds.length)throw new HttpError('Choose the categories for this channel.',400);
     if(categoryIds.length){
       const categories=await tx.query('SELECT id FROM everrate.item_types WHERE group_id=$1 AND id=ANY($2::uuid[])',[groupId,categoryIds]);
       if(categories.rowCount!==categoryIds.length)throw new HttpError('Choose categories from this group.',400);
     }
     if(v.enabled){
-      const overlap=await tx.query("SELECT 1 FROM everrate.discord_connections WHERE group_id=$1 AND route<>$2 AND enabled AND ($2='all' OR route='all' OR category_ids && $3::uuid[])",[groupId,v.route,categoryIds]);
+      const overlap=await tx.query("SELECT 1 FROM everrate.discord_connections WHERE group_id=$1 AND route<>$2 AND enabled AND ($2='all' OR route='all' OR ($2<>'other' AND route<>'other' AND category_ids && $3::uuid[]))",[groupId,v.route,categoryIds]);
       if(overlap.rowCount)throw new HttpError('These categories already share to another channel. Disable or update that connection first.',409);
     }
     if(encrypted)await tx.query('INSERT INTO everrate.discord_connections(group_id,route,category_ids,webhook_encrypted,enabled,updated_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(group_id,route) DO UPDATE SET category_ids=$3,webhook_encrypted=$4,enabled=$5,updated_by=$6,updated_at=now()',[groupId,v.route,categoryIds,encrypted,v.enabled,userId]);
     else {const r=await tx.query('UPDATE everrate.discord_connections SET category_ids=$3,enabled=$4,updated_by=$5,updated_at=now() WHERE group_id=$1 AND route=$2',[groupId,v.route,categoryIds,v.enabled,userId]);if(!r.rowCount&&v.enabled)throw new HttpError('Add a Discord channel connection first.',400);}
-    await tx.query(`UPDATE everrate.discord_outbox o SET status='cancelled' WHERE o.group_id=$1 AND o.route=$2 AND o.status IN ('pending','processing','failed')
-      AND (NOT $3::boolean OR NOT EXISTS(SELECT 1 FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.route=o.route WHERE r.id=o.rating_id AND r.group_id=o.group_id AND ${discordItemMatchesRoute}))`,[groupId,v.route,v.enabled]);
+    await tx.query(`UPDATE everrate.discord_outbox o SET status='cancelled' WHERE o.group_id=$1 AND (o.route=$2 OR o.route='other') AND o.status IN ('pending','processing','failed')
+      AND NOT EXISTS(SELECT 1 FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.route=o.route WHERE r.id=o.rating_id AND r.group_id=o.group_id AND d.enabled AND ${discordItemMatchesRoute})`,[groupId,v.route]);
     await tx.query("INSERT INTO everrate.audit_events(group_id,actor_id,action,details) VALUES($1,$2,'discord.connection.updated',$3)",[groupId,userId,{enabled:v.enabled,route:v.route,categoryIds}]);
     return {connected:v.enabled};
   });

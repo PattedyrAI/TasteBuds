@@ -1,6 +1,6 @@
 # Discord review channels
 
-TasteBuds stores a separate encrypted connection for energy-drink reviews and food reviews. Each connection belongs to one TasteBuds group and has an explicit list of that group's categories. A category can have only one enabled destination. New and unassigned categories stay unpublished until a group manager assigns them.
+TasteBuds stores separate encrypted connections for energy-drink, food and other reviews. Each connection belongs to one TasteBuds group. Energy-drink reviews match selected category IDs; Food matches the broad Food kind, with selected categories as a legacy fallback. Other reviews go to the fallback channel only when no enabled specific connection matches, including new and unassigned categories. Each new review has one destination.
 
 ## Intended setup
 
@@ -10,6 +10,7 @@ Verified in Safari on 2026-09-24:
 | --- | --- | --- |
 | Onlyfans Subscribers (`984524869498728478`) | `#energy-drink-reviews` | `1208438486940524554` |
 | Onlyfans Subscribers (`984524869498728478`) | `#food` | `1282374906683592897` |
+| Onlyfans Subscribers (`984524869498728478`) | `#reviews` | `1563107839977984140` |
 
 Both channels have a webhook named **TasteBuds**, created on 2026-09-24. Their server and channel IDs were verified through Discord's webhook API. Production connections were activated on the same day: one Energy drinks category and 45 food categories in Onlyfans Subscribers.
 
@@ -21,13 +22,17 @@ At the user's request, the three webhook URLs are stored in a local Markdown fil
 2. Sign into TasteBuds as the group's owner or platform administrator. Open **Group settings → Bring the conversation to Discord**.
 3. If an existing **All reviews** connection appears, disable it first; it cannot overlap the two specific destinations.
 4. Under **Energy-drink reviews**, select the group's energy-drink category, paste that channel's webhook URL, enable sharing and save.
-5. Under **Food reviews**, select all food categories, including snacks, desserts and restaurant dishes where appropriate. Paste the `#food` webhook URL, enable sharing and save. Do not include unrelated drinks, nicotine or other non-food categories.
-6. When adding a new category, explicitly assign it to its intended connection. Labels on the connections do not automatically classify categories.
+5. Under **Food reviews**, paste the `#food` webhook URL, enable sharing and save. Reviews marked Food are included automatically. Legacy food categories can also be selected; do not include unrelated drinks, nicotine or other non-food categories.
+6. Under **Other reviews**, paste the `#reviews` webhook URL, enable sharing and save. No category selection is needed. Energy-drink and food destinations keep priority when enabled; everything else uses #reviews. Disabling a specific connection allows future reviews to use the fallback. Existing reviews are never replayed or redirected.
 7. Verify one authorized new review in each category in its actual Discord channel. Check score, author, note, item link and absence from the other channel. Existing reviews are never replayed.
 
 Paste webhook URLs only into the password fields in TasteBuds; never put them in chat, Git, shell arguments or logs. Read APIs return only route, enabled state and category IDs. The server requires the existing `DISCORD_ENCRYPTION_KEY`; preserve that key, because replacing it makes existing connections unreadable.
 
 ## Delivery and release
+
+`011_other_review_route.sql` adds the `other` route without modifying existing connections or queued destinations. Apply it before running the new build. Enable Other reviews only after the new code is running. If an old queued fallback review becomes eligible for a specific channel, its fallback delivery is cancelled rather than redirected. Saving a connection and sending queued work both recheck eligibility. The #reviews channel was created on 2026-10-23; webhook creation and production activation are still pending.
+
+Verification on 2026-10-23: TypeScript, production build and 385 unit tests passed (60 skipped). All 23 focused Discord integration tests passed against a fresh disposable PostgreSQL 17 database, including migration 011, exact fallback delivery, untyped reviews, cancellation after routing changes, disabled destinations and overlap rejection. Discord HTTP was intercepted; no real review was posted.
 
 `009_discord_category_routes.sql` preserves current connections and pending entries as the `all` route. It changes the connection primary key to `(group_id, route)`. Apply this migration as a coordinated release: the old connection-saving code uses `ON CONFLICT(group_id)` and is incompatible with the new key. Stop the old web/outbox worker for the migration and start the reviewed build before configuring multiple destinations. Do not roll back to the old application while multiple routes exist.
 
