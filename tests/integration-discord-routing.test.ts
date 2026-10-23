@@ -193,6 +193,19 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     expect((await getPool().query('SELECT route,status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{route:'other',status:'cancelled'}]);
   });
 
+  it('keeps food separate while moving future energy-drink reviews to other',async()=>{
+    await connect('energy_drinks',[energyId]);await connect('food',[]);
+    await connect('other',[],otherHook);
+    await connectDiscord(owner,groupId,{route:'energy_drinks',enabled:false});
+    const energy=await rate('Energy drinks');
+    const food=await createRating(owner,{brand:'Fixture',groupId,name:'Lunch',broadCategory:'Food',photoId,score:8});
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[energy.id])).rows).toEqual([{route:'other'}]);
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[food.id])).rows).toEqual([{route:'food'}]);
+    await processDiscordOutbox();
+    expect(posted.find(post=>post.body.embeds[0].url.endsWith(energy.itemId))?.target).toBe(otherHook+'?wait=true&with_components=true');
+    expect(posted.find(post=>post.body.embeds[0].url.endsWith(food.itemId))?.target).toBe(foodHook+'?wait=true&with_components=true');
+  });
+
   it('keeps other exclusive with all and rejects category filters',async()=>{
     await expect(connect('other',[foodId],otherHook)).rejects.toMatchObject({status:400});
     await connect('other',[],otherHook);
