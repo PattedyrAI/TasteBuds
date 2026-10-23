@@ -44,6 +44,12 @@ TypeScript, production build, 396 unit tests (60 skipped), and 108 database inte
 
 The connection/outbox tables were backed up before migration 011. Before/after fingerprints matched for users, groups, items, ratings, revisions, comments and photo metadata/byte totals. Activation used the deployed source's connection service: enable Other first, then disable Energy drinks, retaining Food. Both webhook destinations were independently read back from Discord. The 392 items in Onlyfans Subscribers each matched exactly one active route. No historical reviews were replayed or synthetic review posted; actual receipt of a subsequent user-created review remains separate evidence. Private operational receipts and the readable connection backup are under the devbox's `.private/tastebuds-reviews-20261023` directory.
 
+### Cocktails option — 2026-10-23
+
+Source `8ba73ec36e4bb4b77f804d61ed71e8c078df0703` makes the existing Cocktails category directly visible among the Drink review choices, even when it falls outside the six most-used categories. No category, review or routing records were changed. A read-only check using the deployed route predicate confirmed that a Drink/Cocktails review selects only Other (#reviews).
+
+Typecheck, production build and 396 unit tests passed (60 skipped). The actual review form with synthetic data showed Cocktails directly, selected it successfully and had no horizontal overflow at 390px. Railway deployment `04b6d8f5-1835-4e40-9e47-c676ef4931c2` reached `SUCCESS`; all nine public checks passed against the exact source marker at `2026-10-23T10:13:09.335Z`. Upload scope was 203 allowlisted files, 2,783,041 bytes. The temporary inspection SSH key was revoked.
+
 `009_discord_category_routes.sql` preserves current connections and pending entries as the `all` route. It changes the connection primary key to `(group_id, route)`. Apply this migration as a coordinated release: the old connection-saving code uses `ON CONFLICT(group_id)` and is incompatible with the new key. Stop the old web/outbox worker for the migration and start the reviewed build before configuring multiple destinations. Do not roll back to the old application while multiple routes exist.
 
 The existing runtime role already has privileges on both changed tables. No new table grants or public schema exposure are required. Production migration, release and activation require a separate approval with the reviewed commit and verification evidence.
