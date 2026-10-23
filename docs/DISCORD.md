@@ -86,6 +86,10 @@ This one-off recovery used the deployed formatter and a manually claimed exact o
 
 ## Embed layout (September 30, 2026)
 
+### Reviewer attribution — 2026-10-23
+
+New announcements put the reviewer beside the score: `9.9 / 10 — @Pat`. The worker resolves the Discord ID from the rating owner's current canonical user record immediately before delivery. Missing or invalid IDs fall back to a bounded, escaped display name. The sender remains TasteBuds, and `allowed_mentions: {parse: []}` prevents notification pings. Existing messages are not rewritten. No database migration or routing change is required.
+
 Posts are titled with brand, model and variant, since items store the model without its brand. The reviewer and category share the author line, the note is a quote, and the score has a ten-square bar. The sidebar colour follows the score (green from 8, amber from 5, red below). The footer names the group, and the Discord timestamp comes from `discord_outbox.created_at`. Outbox payloads now carry `variant`; rows queued earlier show none.
 
 Source `b3cecbb13cbcbc24d26d2c80b833c4f47bd34145` reached Railway `SUCCESS` as deployment `2ea6c15a-a598-487e-b4f6-74e8a3dc0052`, uploaded from an inspected allowlisted `git archive` directory. The prior deployment `1d9bcb0e-8428-4056-a92e-7fb4ac4b7259` (`f8d6230`) is the rollback target. Only `APP_RELEASE` changed. No migration. All nine public launch checks passed against the exact marker. Typecheck, 212 unit tests, 96 database integration tests on disposable Postgres 16 and the production build passed. The Docker image was built only by Railway. The new embed has not yet been observed in a real channel; the next real review is that evidence.

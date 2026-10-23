@@ -85,6 +85,26 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
     }
   });
 
+  it('resolves the current reviewer account for queued reviews and disables mention pings',async()=>{
+    // The link can be established after the review was queued; payload names are not identity.
+    await getPool().query('UPDATE everrate.users SET discord_id=$2 WHERE id=$1',[ownerId,'998877665544332211']);
+    const messages:{allowed_mentions:{parse:string[]};embeds:{fields:{value:string}[]}[]}[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      messages.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)));
+      return Response.json({});
+    }));
+    try{
+      await processDiscordOutbox();
+      expect(messages).toHaveLength(3);
+      for(const message of messages){
+        expect(message.embeds[0].fields[0].value).toContain('**7 / 10** — <@998877665544332211>\n');
+        expect(message.allowed_mentions).toEqual({parse:[]});
+      }
+    }finally{
+      await getPool().query('UPDATE everrate.users SET discord_id=NULL WHERE id=$1',[ownerId]);
+    }
+  });
+
   it('delivers the last three active earlier ratings for this product, including historical sources',async()=>{
     const db=getPool();
     const {item_id:itemId}=(await db.query('SELECT item_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
