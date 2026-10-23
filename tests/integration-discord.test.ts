@@ -85,6 +85,55 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
     }
   });
 
+  it('delivers the last three active earlier ratings for this product, including historical sources',async()=>{
+    const db=getPool();
+    const {item_id:itemId}=(await db.query('SELECT item_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
+    const linkedId=(await ensureUser({id:randomUUID(),discordId:'123456789012345678',displayName:'Linked reviewer'})).id;
+    const unlinkedId=(await ensureUser({id:randomUUID(),displayName:'Tea friend'})).id;
+    await db.query("UPDATE everrate.ratings SET tasted_at='2025-01-01' WHERE id=$1",[ratingIds[0]]);
+    for(const [score,year,userId,source,deleted] of [
+      [2,2020,linkedId,'app',false],
+      [5.5,2021,linkedId,'import',false],
+      [8,2022,unlinkedId,'app',false],
+      [9.2,2023,linkedId,'discord',false],
+      [1,2024,linkedId,'app',true],
+      [10,2026,linkedId,'app',false],
+    ] as const){
+      await db.query(`INSERT INTO everrate.ratings(group_id,item_id,user_id,score,tasted_at,source,deleted_at,legacy_photo_missing)
+        VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $7 THEN now() END,true)`,[groupId,itemId,userId,score,`${year}-01-01`,source,deleted]);
+    }
+    const messages:{title:string;fields:{name:string;value:string}[]}[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      messages.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)).embeds[0]);
+      return Response.json({});
+    }));
+    await processDiscordOutbox();
+    expect(messages[0].fields[1]).toEqual({name:'3 LAST RATINGS OF THIS PRODUCT',value:'<@123456789012345678> - 9.2 / 10\n@Tea friend - 8 / 10\n<@123456789012345678> - 5.5 / 10',inline:false});
+    expect(messages.slice(1).every(message=>message.fields.length===1)).toBe(true);
+  });
+
+  it('carries the app rereview status through the outbox to the delivered message', async () => {
+    const original=(await getPool().query('SELECT item_id,photo_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
+    const rereview=await createRating(ownerId,{groupId,itemId:original.item_id,photoId:original.photo_id,rereviewOf:ratingIds[0],score:8.5});
+    expect(rereview.isRereview).toBe(true);
+    const queued=(await getPool().query('SELECT payload FROM everrate.discord_outbox WHERE rating_id=$1',[rereview.id])).rows[0].payload;
+    expect(queued.isRereview).toBe(true);
+    const backdated=await createRating(ownerId,{groupId,itemId:original.item_id,photoId:original.photo_id,rereviewOf:ratingIds[0],score:6,tastedAt:'2020-01-01T00:00:00Z'});
+    expect(backdated.isRereview).toBe(false);
+    expect((await getPool().query('SELECT payload FROM everrate.discord_outbox WHERE rating_id=$1',[backdated.id])).rows[0].payload.isRereview).toBe(false);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:03Z' WHERE rating_id=$1",[rereview.id]);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:04Z' WHERE rating_id=$1",[backdated.id]);
+    const authors:string[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      authors.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)).embeds[0].author.name);
+      return Response.json({});
+    }));
+    await processDiscordOutbox();
+    await processDiscordOutbox();
+    expect(authors).toEqual(['Discord delivery test','Discord delivery test','Discord delivery test','Discord delivery test · REREVIEW','Discord delivery test']);
+    expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1',[rereview.id])).rows[0].status).toBe('sent');
+  });
+
   it('does not overwrite a newer claim when an old HTTP request completes', async () => {
     let posts = 0;
     vi.stubGlobal('fetch', vi.fn(async () => {
