@@ -30,11 +30,19 @@ Paste webhook URLs only into the password fields in TasteBuds; never put them in
 
 ## Delivery and release
 
-`011_other_review_route.sql` adds the `other` route without modifying existing connections or queued destinations. Apply it before running the new build. Enable Other reviews only after the new code is running. If an old queued fallback review becomes eligible for a specific channel, its fallback delivery is cancelled rather than redirected. Saving a connection and sending queued work both recheck eligibility. The #reviews channel was created on 2026-10-23; webhook creation and production activation are still pending.
+`011_other_review_route.sql` adds the `other` route without modifying existing connections or queued destinations. Apply it before running the new build. Enable Other reviews only after the new code is running. If an old queued fallback review becomes eligible for a specific channel, its fallback delivery is cancelled rather than redirected. Saving a connection and sending queued work both recheck eligibility. The #reviews channel and its TasteBuds webhook were created on 2026-10-23 and are activated as recorded below.
 
-The user selected a two-channel setup on 2026-10-23: keep Food enabled for #food, disable the energy-drink connection, and enable Other for #reviews. This sends future energy-drink and all remaining unmatched reviews to #reviews. Its TasteBuds webhook is created; production deployment and activation await Railway reauthentication. The webhook URL is in a private, ignored local file and is not committed.
+The user selected a two-channel setup on 2026-10-23: keep Food enabled for #food, disable the energy-drink connection, and enable Other for #reviews. This sends future energy-drink and all remaining unmatched reviews to #reviews. The webhook URL is in a private, ignored local file and is not committed.
 
 Verification on 2026-10-23: TypeScript, production build and 385 unit tests passed (60 skipped). All 23 focused Discord integration tests passed against a fresh disposable PostgreSQL 17 database, including migration 011, exact fallback delivery, untyped reviews, cancellation after routing changes, disabled destinations and overlap rejection. Discord HTTP was intercepted; no real review was posted.
+
+### Production activation — 2026-10-23
+
+Source `f66836cc35d566046caec2cd319a1a6d6ce2a8d6` preserves the live rereview and recent-rating embed changes from `8f384ec636d00a3c7952ad76bac2acfe08d01b40`. It reached Railway `SUCCESS` as deployment `8d1a6a6e-533d-4789-895a-02e1f764fa81`, uploaded from an inspected allowlist of 203 files (2,782,817 bytes). Only the APP_RELEASE service variable changed; existing server credentials were preserved.
+
+TypeScript, production build, 396 unit tests (60 skipped), and 108 database integration tests (9 skipped) passed. The Docker image built successfully and ran as `node`; all nine local container smoke checks passed. All nine public production checks passed against the exact release marker at `2026-10-23T10:03:40.864Z`.
+
+The connection/outbox tables were backed up before migration 011. Before/after fingerprints matched for users, groups, items, ratings, revisions, comments and photo metadata/byte totals. Activation used the deployed source's connection service: enable Other first, then disable Energy drinks, retaining Food. Both webhook destinations were independently read back from Discord. The 392 items in Onlyfans Subscribers each matched exactly one active route. No historical reviews were replayed or synthetic review posted; actual receipt of a subsequent user-created review remains separate evidence. Private operational receipts and the readable connection backup are under the devbox's `.private/tastebuds-reviews-20261023` directory.
 
 `009_discord_category_routes.sql` preserves current connections and pending entries as the `all` route. It changes the connection primary key to `(group_id, route)`. Apply this migration as a coordinated release: the old connection-saving code uses `ON CONFLICT(group_id)` and is incompatible with the new key. Stop the old web/outbox worker for the migration and start the reviewed build before configuring multiple destinations. Do not roll back to the old application while multiple routes exist.
 
