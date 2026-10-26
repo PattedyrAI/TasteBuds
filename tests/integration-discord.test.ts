@@ -85,6 +85,53 @@ describe.skipIf(!url)('Discord delivery cancellation and current destination', (
     }
   });
 
+  it('resolves the current reviewer account for queued reviews and disables mention pings',async()=>{
+    // The link can be established after the review was queued; payload names are not identity.
+    await getPool().query('UPDATE everrate.users SET discord_id=$2 WHERE id=$1',[ownerId,'998877665544332211']);
+    const messages:{allowed_mentions:{parse:string[]};embeds:{fields:{value:string}[]}[]}[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      messages.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)));
+      return Response.json({});
+    }));
+    try{
+      await processDiscordOutbox();
+      expect(messages).toHaveLength(3);
+      for(const message of messages){
+        expect(message.embeds[0].fields[0].value).toContain('**7 / 10** — <@998877665544332211>\n');
+        expect(message.allowed_mentions).toEqual({parse:[]});
+      }
+    }finally{
+      await getPool().query('UPDATE everrate.users SET discord_id=NULL WHERE id=$1',[ownerId]);
+    }
+  });
+
+  it('delivers the last three active earlier ratings for this product, including historical sources',async()=>{
+    const db=getPool();
+    const {item_id:itemId}=(await db.query('SELECT item_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
+    const linkedId=(await ensureUser({id:randomUUID(),discordId:'123456789012345678',displayName:'Linked reviewer'})).id;
+    const unlinkedId=(await ensureUser({id:randomUUID(),displayName:'Tea friend'})).id;
+    await db.query("UPDATE everrate.ratings SET tasted_at='2025-01-01' WHERE id=$1",[ratingIds[0]]);
+    for(const [score,year,userId,source,deleted] of [
+      [2,2020,linkedId,'app',false],
+      [5.5,2021,linkedId,'import',false],
+      [8,2022,unlinkedId,'app',false],
+      [9.2,2023,linkedId,'discord',false],
+      [1,2024,linkedId,'app',true],
+      [10,2026,linkedId,'app',false],
+    ] as const){
+      await db.query(`INSERT INTO everrate.ratings(group_id,item_id,user_id,score,tasted_at,source,deleted_at,legacy_photo_missing)
+        VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $7 THEN now() END,true)`,[groupId,itemId,userId,score,`${year}-01-01`,source,deleted]);
+    }
+    const messages:{title:string;fields:{name:string;value:string}[]}[]=[];
+    vi.stubGlobal('fetch',vi.fn(async(_input:string|URL|Request,init?:RequestInit)=>{
+      messages.push(JSON.parse(String(init?.body instanceof FormData?init.body.get('payload_json'):init?.body)).embeds[0]);
+      return Response.json({});
+    }));
+    await processDiscordOutbox();
+    expect(messages[0].fields[1]).toEqual({name:'3 LAST RATINGS OF THIS PRODUCT',value:'<@123456789012345678> - 9.2 / 10\n@Tea friend - 8 / 10\n<@123456789012345678> - 5.5 / 10',inline:false});
+    expect(messages.slice(1).every(message=>message.fields.length===1)).toBe(true);
+  });
+
   it('carries the app rereview status through the outbox to the delivered message', async () => {
     const original=(await getPool().query('SELECT item_id,photo_id FROM everrate.ratings WHERE id=$1',[ratingIds[0]])).rows[0];
     const rereview=await createRating(ownerId,{groupId,itemId:original.item_id,photoId:original.photo_id,rereviewOf:ratingIds[0],score:8.5});

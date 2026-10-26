@@ -3,7 +3,7 @@ import {useState} from 'react';
 import type {Category,DiscordConnection,DiscordRoute,GroupDetail} from '../lib/contracts';
 import {request} from './ui';
 
-const labels:Record<DiscordRoute,string>={all:'All reviews (existing connection)',energy_drinks:'Energy-drink reviews',food:'Food reviews'};
+const labels:Record<DiscordRoute,string>={all:'All reviews (existing connection)',energy_drinks:'Energy-drink reviews',food:'Food reviews',other:'Other reviews'};
 
 function ConnectionForm({groupId,route,connection,categories,changed}:{groupId:string;route:DiscordRoute;connection?:DiscordConnection;categories:Category[];changed:()=>void}){
   const [url,setUrl]=useState(''),[enabled,setEnabled]=useState(connection?.enabled??false);
@@ -20,7 +20,7 @@ function ConnectionForm({groupId,route,connection,categories,changed}:{groupId:s
   return <form className="settings-section" onSubmit={save}>
     <h3>{labels[route]}</h3>
     <p>{connection?(connection.enabled?'Connected and sharing new reviews.':'Connection saved. Sharing is off.'):'No channel connected.'}</p>
-    {route==='all'?<p>This existing connection includes every category. Turn it off before enabling separate channels.</p>:<>
+    {route==='all'?<p>This existing connection includes every category. Turn it off before enabling separate channels.</p>:route==='other'?<p>Send reviews not covered by an enabled food or energy-drink connection to this channel. New and unassigned categories are included automatically, without duplicate posts.</p>:<>
       <p>{route==='food'?'Reviews marked Food are shared automatically. No detailed type is needed.':'Choose the types to share in this channel.'}</p>
       <details><summary>{route==='food'?'Legacy category matching':'Choose categories'} ({selected.length} selected)</summary>
         {categories.map(category=><label className="checkbox" key={category.id}>
@@ -39,7 +39,7 @@ function ConnectionForm({groupId,route,connection,categories,changed}:{groupId:s
 
 export function DiscordSettings({group,changed}:{group:GroupDetail;changed:()=>void}){
   const connections=group.discordConnections??[];
-  const routes:DiscordRoute[]=connections.some(connection=>connection.route==='all')?['all','energy_drinks','food']:['energy_drinks','food'];
+  const routes:DiscordRoute[]=connections.some(connection=>connection.route==='all')?['all','energy_drinks','food','other']:['energy_drinks','food','other'];
   return <div><div className="settings-section"><h2>Bring the conversation to Discord</h2>
     <p>Send new reviews with their cover photo, score, note and a link back to TasteBuds. Existing reviews won’t be posted.</p>
     <small className="muted">In Discord, open each channel’s Settings → Integrations → Webhooks. Paste its URL into the matching connection below. URLs are stored encrypted and are never shown again.</small>

@@ -9,7 +9,7 @@ export interface PersonRatingsPage { person: Person; ratings: PersonRating[]; ne
 export interface CategoryField { id: string; label: string; type: 'text'|'number'|'price'|'select'|'boolean'|'location'; required: boolean; filterable: boolean; options?: string[] }
 export type CustomFields = Record<string,string|number|boolean>;
 export interface Category { id: string; name: string; fields: CategoryField[] }
-export type DiscordRoute = 'all' | 'energy_drinks' | 'food';
+export type DiscordRoute = 'all' | 'energy_drinks' | 'food' | 'other';
 export interface DiscordConnection {route: DiscordRoute; enabled: boolean; categoryIds: string[]}
 export interface GroupDetail extends Group { categories?: Category[]; inviteCode: string | null; members: Member[]; discordConnected: boolean; discordConnections?: DiscordConnection[]; stats: { itemCount: number; tastingCount: number; activeMembers: number } }
 export interface Bootstrap { user: User; groups: Group[] }
