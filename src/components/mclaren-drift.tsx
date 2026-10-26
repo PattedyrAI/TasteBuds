@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef} from 'react';
-import {trackSecret} from './matthew-mode';
+import {trackSecret,type SecretMode} from './matthew-mode';
 
 /** Sprite strip: 8 turntable frames of a ChatGPT-drawn McLaren P1, bottom-aligned on a shared ground line. */
 const SHEET='/matthew/p1-frames.png';
@@ -178,38 +178,40 @@ function runDrift(canvas:HTMLCanvasElement,sheet:HTMLImageElement,signal:{stoppe
 }
 
 /**
- * Matthew mode's McLaren P1: after five minutes in Matthew mode it drifts across the page at random intervals,
- * in front of the cards, leaving skidmarks that wear off. Typing MCLAREN in Matthew mode sends it immediately.
+ * The active mode's car drifts across the page after five minutes, leaving fading skidmarks.
+ * Type MCLAREN in Matthew mode or MAZDA in Bristian mode to send it immediately.
  */
-export function McLarenDrift(){
+export function McLarenDrift({mode='matthew'}:{mode?:SecretMode}){
   const canvas=useRef<HTMLCanvasElement>(null);
   useEffect(()=>{
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
     const signal={stopped:false};
+    const sheetPath=mode==='bristian'?'/bristian/rx7-frames.png':SHEET;
+    const clockKey=mode==='bristian'?'tastebuds-rx7-clock':CLOCK_KEY;
     let sheet:HTMLImageElement|null=null,running=false,buffer='';
-    const active=()=>document.documentElement.dataset.theme==='matthew';
-    const load=()=>sheet??=Object.assign(new Image(),{src:SHEET});
+    const active=()=>document.documentElement.dataset.theme===mode;
+    const load=()=>sheet??=Object.assign(new Image(),{src:sheetPath});
     const go=async()=>{
       if(running||!active()||!canvas.current)return;
       const img=load();running=true;
-      try{if(!img.complete)await img.decode();canvas.current.hidden=false;await runDrift(canvas.current,img,signal);}catch{}
+      try{if(!img.complete)await img.decode();if(signal.stopped||!active()||!canvas.current)return;canvas.current.hidden=false;await runDrift(canvas.current,img,signal);}catch{}
       if(canvas.current)canvas.current.hidden=true;running=false;
     };
-    const read=()=>{try{return JSON.parse(sessionStorage.getItem(CLOCK_KEY)||'')as {elapsed:number;next:number};}catch{return {elapsed:0,next:FIRST_RUN_MS+Math.random()*60_000};}};
+    const read=()=>{try{return JSON.parse(sessionStorage.getItem(clockKey)||'')as {elapsed:number;next:number};}catch{return {elapsed:0,next:FIRST_RUN_MS+Math.random()*60_000};}};
     // Count only time spent in Matthew mode with the tab visible; the clock survives reloads within the session.
     const clock=setInterval(()=>{
       if(!active()||document.hidden)return;
       const c=read();c.elapsed+=1000;
       if(c.elapsed>=c.next){c.next=c.elapsed+FIRST_RUN_MS+Math.random()*4*60_000;void go();}
-      try{sessionStorage.setItem(CLOCK_KEY,JSON.stringify(c));}catch{}
+      try{sessionStorage.setItem(clockKey,JSON.stringify(c));}catch{}
     },1000);
     const onKey=(event:KeyboardEvent)=>{
-      if(!active()||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return;
+      if(!active()||event.repeat||event.isComposing||event.ctrlKey||event.metaKey||event.altKey)return;
       const t=event.target;if(t instanceof HTMLElement&&(t.isContentEditable||t.closest('input,textarea,select')))return;
-      const r=trackSecret(buffer,event.key,'MCLAREN');buffer=r.buffer;if(r.matched)void go();
+      const r=trackSecret(buffer,event.key,mode==='bristian'?'MAZDA':'MCLAREN');buffer=r.buffer;if(r.matched)void go();
     };
     window.addEventListener('keydown',onKey);
     return()=>{signal.stopped=true;clearInterval(clock);window.removeEventListener('keydown',onKey);};
-  },[]);
+  },[mode]);
   return <canvas ref={canvas} className="mclaren-drift" hidden aria-hidden="true"/>;
 }
