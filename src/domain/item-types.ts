@@ -26,6 +26,8 @@ const aliases: Record<string, string> = {
   'potato chips': 'Chips', crisps: 'Chips', chips: 'Chips',
 };
 
+export const itemTypeAliasNames:readonly string[]=Object.keys(aliases);
+
 export function canonicalItemType(value: string): string {
   const trimmed = value.trim().replace(/\s+/g, ' ');
   const key = trimmed.toLowerCase().replace(/&/g, 'and').replace(/[-_]/g, ' ').replace(/\s+/g, ' ');

@@ -20,7 +20,7 @@ function ConnectionForm({groupId,route,connection,categories,changed}:{groupId:s
   return <form className="settings-section" onSubmit={save}>
     <h3>{labels[route]}</h3>
     <p>{connection?(connection.enabled?'Connected and sharing new reviews.':'Connection saved. Sharing is off.'):'No channel connected.'}</p>
-    {route==='all'?<p>This existing connection includes every category. Turn it off before enabling separate channels.</p>:route==='other'?<p>Send reviews not covered by an enabled food or energy-drink connection to this channel. New and unassigned categories are included automatically, without duplicate posts.</p>:<>
+    {route==='all'?<p>This existing connection includes every category. Turn it off before enabling separate channels.</p>:route==='other'?<p>Only reviews that are neither Food nor Energy drinks go to this channel. Food and energy drinks stay excluded even while their dedicated channels are off.</p>:<>
       <p>{route==='food'?'Reviews marked Food are shared automatically. No detailed type is needed.':'Choose the types to share in this channel.'}</p>
       <details><summary>{route==='food'?'Legacy category matching':'Choose categories'} ({selected.length} selected)</summary>
         {categories.map(category=><label className="checkbox" key={category.id}>
