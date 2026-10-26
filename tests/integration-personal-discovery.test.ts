@@ -74,12 +74,16 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
     const p=await photo(group.id,owner),fp=await photo(group.id,friend),tp=await photo(group.id,third);
     const items:string[]=[];
     for(let index=0;index<3;index++){
-      const r=await service.createRating(owner,{groupId:group.id,name:'Taste '+index,brand:'Maker',score:8,photoId:p});items.push(r.itemId);
+      const r=await service.createRating(owner,{groupId:group.id,name:'Taste '+index,brand:'Maker',type:'Energy drinks',score:8,photoId:p});items.push(r.itemId);
       await service.createRating(friend,{groupId:group.id,itemId:r.itemId,score:index===0?2:9,photoId:fp,tastedAt:'2024-01-01T00:00:00Z'});
       if(index===0)await service.createRating(friend,{groupId:group.id,itemId:r.itemId,score:8,photoId:fp});
       await service.createRating(third,{groupId:group.id,itemId:r.itemId,score:2,photoId:tp});
       if(index===1)expect((await service.getTasteInsights(owner,group.id)).matches).toEqual([]);
     }
+    const pick=await service.createRating(friend,{groupId:group.id,name:'Unseen drink',brand:'Maker',type:'Energy drinks',score:9.8,photoId:fp});
+    const lowered=await service.createRating(friend,{groupId:group.id,name:'Lowered drink',brand:'Maker',type:'Energy drinks',score:10,photoId:fp,tastedAt:'2024-01-01T00:00:00Z'});
+    await service.createRating(friend,{groupId:group.id,itemId:lowered.itemId,score:6,photoId:fp});
+    await service.createRating(third,{groupId:group.id,name:'Unmatched drink',brand:'Maker',type:'Energy drinks',score:10,photoId:tp});
     const insight=await service.getTasteInsights(owner,group.id);
     expect(insight.matches.map(m=>m.person.id)).toEqual([friend,third]);
     expect(insight.matches[0]).toMatchObject({sharedCount:3,similarCount:3,meanDifference:2/3});
@@ -87,12 +91,19 @@ describe.skipIf(!url)('personal discovery and authorized rereviews',()=>{
     expect(insight.matches[0].disagreements.every(d=>d.difference===1)).toBe(true);
     expect(Object.keys(insight.matches[0].person).sort()).toEqual(['avatarUrl','displayName','id']);
     expect(insight.divisive).toHaveLength(3);expect(insight.divisive[0]).toMatchObject({lowScore:2,highScore:9,raterCount:3,brand:'Maker'});
+    expect(insight.recommendations.map(r=>r.itemId)).toEqual([pick.itemId]);
+    expect(insight.recommendations[0]).toMatchObject({type:'Energy drinks',sources:[{person:{id:friend},score:9.8,sharedCount:3,meanDifference:2/3}]});
     await service.removeMember(owner,group.id,third);
     expect((await service.getTasteInsights(owner,group.id)).divisive).toEqual([]);
     expect((await service.getTasteInsights(owner,group.id)).matches.map(m=>m.person.id)).toEqual([friend]);
     await expect(service.getTasteInsights(third,group.id)).rejects.toMatchObject({status:404});
     await expect(service.getTasteInsights(outsider,group.id)).rejects.toMatchObject({status:404});
+    await service.createRating(owner,{groupId:group.id,itemId:pick.itemId,score:9,photoId:p});
+    expect((await service.getTasteInsights(owner,group.id)).recommendations).toEqual([]);
+    const leavingPick=await service.createRating(friend,{groupId:group.id,name:'Leaving member drink',brand:'Maker',type:'Energy drinks',score:9,photoId:fp});
+    expect((await service.getTasteInsights(owner,group.id)).recommendations.map(r=>r.itemId)).toEqual([leavingPick.itemId]);
     await service.saveItem(friend,items[0],true);await service.removeMember(owner,group.id,friend);
+    expect((await service.getTasteInsights(owner,group.id)).recommendations).toEqual([]);
     await expect(service.saveItem(friend,items[0],false)).rejects.toMatchObject({status:404});
   });
 });

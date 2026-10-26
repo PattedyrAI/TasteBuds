@@ -3,6 +3,37 @@ import {tasteInsights,type TasteObservation} from '../src/domain/taste-insights'
 import {createRatingSchema} from '../src/domain/validation';
 function row(userId:string,itemId:string,score:number):TasteObservation{return {userId,itemId,score,displayName:userId,avatarUrl:null,itemName:itemId,brand:null};}
 describe('transparent taste comparisons',()=>{
+  const drink=(userId:string,itemId:string,score:number)=>({...row(userId,itemId,score),type:'Energy drinks'});
+  const shared=(friend='friend',difference=0)=>[1,2,3].flatMap(n=>[drink('me','shared'+n,7),drink(friend,'shared'+n,7+difference)]);
+  it('recommends only unseen 8+ drinks from a close profile with at least three shared items',()=>{
+    const rows=[...shared(),drink('friend','pick',9),drink('friend','low',7.9),{...row('friend','food',10),type:'Burgers'},drink('friend','tried',10),drink('me','tried',8),drink('stranger','unknown',10)];
+    const result=tasteInsights('me',rows);
+    expect(result.recommendations.map(r=>r.itemId)).toEqual(['pick']);
+    expect(result.recommendations[0].sources[0]).toMatchObject({person:{id:'friend'},score:9,sharedCount:4,meanDifference:.5});
+    expect(tasteInsights('me',[...shared().slice(0,4),drink('friend','pick',10)]).recommendations).toEqual([]);
+    expect(tasteInsights('me',[...shared('friend',1.1),drink('friend','pick',10)]).recommendations).toEqual([]);
+    expect(tasteInsights('me',[...shared('friend',1),drink('friend','boundary',8)]).recommendations.map(r=>r.itemId)).toEqual(['boundary']);
+  });
+  it('merges matched sources, preserves each profile’s top five and uses stable support ordering',()=>{
+    const mine=shared().filter(r=>r.userId==='me');
+    const rows=[...mine,...shared().filter(r=>r.userId==='friend'),...shared('other',.5).filter(r=>r.userId==='other'),drink('friend','both',9),drink('other','both',8.5),...Array.from({length:7},(_,i)=>drink('friend','pick'+i,10-i*.1))];
+    const before=structuredClone(rows),result=tasteInsights('me',rows);
+    expect(result.recommendations.map(r=>r.itemId)).not.toContain('pick6');
+    expect(result.recommendations.find(r=>r.itemId==='both')?.sources.map(s=>s.person.id)).toEqual(['friend','other']);
+    expect(result.recommendations[0].itemId).toBe('both');
+    expect(tasteInsights('me',[...rows].reverse()).recommendations).toEqual(result.recommendations);
+    expect(rows).toEqual(before);
+  });
+  it('uses broad drink metadata for custom categories and ignores unclassified items',()=>{
+    const result=tasteInsights('me',[...shared(),{...row('friend','custom',9),type:'House special',broadCategory:'Drink'},row('friend','unknown',10)]);
+    expect(result.recommendations.map(r=>r.itemId)).toEqual(['custom']);
+  });
+  it('includes decimal scores exactly one point apart at both similarity boundaries',()=>{
+    const rows=[1,2,3].flatMap(n=>[drink('me','decimal'+n,7.3),drink('friend','decimal'+n,8.3)]);
+    const result=tasteInsights('me',[...rows,drink('friend','pick',9)]);
+    expect(result.matches[0].similarCount).toBe(3);
+    expect(result.recommendations.map(r=>r.itemId)).toEqual(['pick']);
+  });
   it('caps sorted matches, divisive items and disagreements',()=>{
     const rows:TasteObservation[]=[];
     for(let i=0;i<7;i++){

@@ -42,4 +42,8 @@ export interface TasteMatch {
   disagreements: { itemId: string; itemName: string; myScore: number; theirScore: number; difference: number }[];
 }
 export interface DivisiveItem { itemId: string; itemName: string; brand: string | null; lowScore: number; highScore: number; raterCount: number }
-export interface TasteInsights { matches: TasteMatch[]; divisive: DivisiveItem[] }
+export interface TasteRecommendation {
+  itemId:string; itemName:string; brand:string|null; type:string|null;
+  sources:{person:TasteMatch['person'];score:number;sharedCount:number;meanDifference:number}[];
+}
+export interface TasteInsights { matches: TasteMatch[]; divisive: DivisiveItem[]; recommendations:TasteRecommendation[] }
