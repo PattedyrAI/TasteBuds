@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {ReviewPhotos,reviewPhotoIds} from './review-photos';
+import {PhotoViewer} from './photo-viewer';
 import {ReviewConversation} from './review-conversation';
 import {RatingStatus} from './rating-status';
 import {BrandLabel} from './brand-label';
@@ -18,7 +19,7 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
   const [item,setItem]=useState<Detail|null>(null),[error,setError]=useState('');
   const [busy,setBusy]=useState(false),[deleting,setDeleting]=useState<string|null>(null);
   const [metadataCategory,setMetadataCategory]=useState('');
-  const [editItem,setEditItem]=useState(false);
+  const [editItem,setEditItem]=useState(false),[enlarged,setEnlarged]=useState(false);
   const load=()=>request<Detail>(`/api/items/${id}`).then(setItem).catch(e=>setError(e.message));
   useEffect(()=>{void load();},[id]);
   async function run(work:()=>Promise<unknown>){
@@ -34,7 +35,8 @@ export function ItemDetail({id,user,owner,close,rate,edit,changed,person,rerevie
     footer={item&&<div className="button-row"><button className="button primary large grow" onClick={()=>{if(mine)rereview(mine,item);else rate(item);}}>{mine?<><Repeat2 size={18}/>Rate it again</>:<><Plus size={18}/>Rate it</>}</button><SaveItemButton item={item} changed={saved=>setItem(current=>current?{...current,saved}:current)}/></div>}>
     {error&&<p role="alert" className="error">{error}</p>}
     {!item?<div className="skeleton detail-skeleton" aria-busy="true"><span/><span/><span/></div>:<div className={`detail${item.myScore===10?' personal-perfect':''}`}>
-      <div className="detail-hero"><Photo id={item.photoId} name={item.name}/></div>
+      <div className="detail-hero">{item.photoId?<button type="button" className="detail-hero-open" aria-label={`Enlarge photo of ${item.name}`} onClick={()=>setEnlarged(true)}><Photo id={item.photoId} name={item.name}/></button>:<Photo id={item.photoId} name={item.name}/>}</div>
+      {enlarged&&item.photoId&&<PhotoViewer ids={[item.photoId]} name={item.name} close={()=>setEnlarged(false)}/>}
       <section className="score-panel" aria-label="Scores">
         <div className="score-panel-main"><span className="score-panel-label">Group score</span><Score value={item.average} words size="lg"/><small className="muted">Average of each person’s latest score · {item.raterCount} {item.raterCount===1?'person':'people'} · {item.tastingCount} {item.tastingCount===1?'tasting':'tastings'}</small></div>
         <div className="score-panel-side"><span className="score-panel-label">You</span>{item.myScore==null?<span className="muted">Not tried yet</span>:<Score value={item.myScore} words/>}</div>

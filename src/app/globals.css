@@ -134,7 +134,8 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 .photo-preview{display:block;width:100%;height:100%;border:0;padding:0;background:transparent;cursor:zoom-in}
 .photo-preview>.item-photo{display:block;width:100%;height:100%;object-fit:cover}
 .photo-preview>span{position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:4px;padding:6px 8px;border-radius:20px;background:#fff;color:var(--ink);font-size:12px;font-weight:700;pointer-events:none}
-.photo-viewer-modal{width:min(1120px,calc(100% - 32px));max-height:calc(100dvh - 24px);padding:18px;border-radius:20px}
+/* .modal in design.css loads later and would cap this at 620px, and the browser's dialog max-width trims phones; the extra class keeps the viewer large. */
+.modal.photo-viewer-modal{width:min(1120px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 24px);border-radius:20px}
 .photo-viewer-modal .modal-head{gap:16px;margin-bottom:14px}
 .photo-viewer-modal .modal-head h2{font-size:18px;overflow-wrap:anywhere;min-width:0}
 .photo-viewer-modal .modal-head .icon-button{flex-shrink:0;min-width:44px;min-height:44px}
@@ -146,7 +147,15 @@ h1{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.04em}h2{font-
 .photo-viewer-toolbar .review-gallery-controls{gap:8px}
 .photo-zoom-toggle{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:white;color:var(--ink);font-size:13px;font-weight:600}
 .photo-viewer button:focus-visible{outline:3px solid var(--pink);outline-offset:-3px}
-@media(max-width:600px){.rating-modal{padding:20px;width:calc(100% - 20px)}.rating-modal .modal-head h2{font-size:22px}.rating-form .review-photo-editor>.upload{min-height:145px}.photo-viewer-modal{width:calc(100% - 12px);padding:12px;border-radius:16px}.photo-viewer-modal .modal-head h2{font-size:16px}.photo-viewer-toolbar{gap:8px}.photo-zoom-toggle{padding:8px 10px}.photo-viewer-stage{height:calc(100dvh - 210px)}}
+/* Product photos enlarge on tap: the photo is its own button above the card's open-detail hit area; save and score stay on top. */
+.card-photo-open,.detail-hero-open{position:relative;z-index:2;display:block;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:none;cursor:zoom-in}
+.card-photo-open>.item-photo,.detail-hero-open>.item-photo{display:block;width:100%;height:100%;object-fit:cover}
+.card-photo-open:focus-visible,.detail-hero-open:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+.card-photo-hint{position:absolute;left:8px;bottom:8px;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#ffffffe6;color:var(--ink);box-shadow:0 2px 6px #29263926;pointer-events:none}
+.item-card .card-image>.save-control{z-index:3}
+.item-card .card-image>.card-score{z-index:3;pointer-events:none}
+.card-meta>span{white-space:nowrap}
+@media(max-width:600px){.rating-modal{padding:20px;width:calc(100% - 20px)}.rating-modal .modal-head h2{font-size:22px}.rating-form .review-photo-editor>.upload{min-height:145px}.modal.photo-viewer-modal{width:calc(100% - 12px);border-radius:16px}.photo-viewer-modal .modal-body{padding:0 10px 12px}.photo-viewer-modal .modal-head h2{font-size:16px}.photo-viewer-toolbar{gap:8px}.photo-zoom-toggle{padding:8px 10px}.photo-viewer-stage{height:calc(100dvh - 210px)}}
 
 .rating-form .review-extra-fields:empty{display:none}
 

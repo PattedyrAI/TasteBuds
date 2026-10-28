@@ -60,7 +60,8 @@ function useDismissLayer(close:()=>void,guard?:()=>boolean){
 export function Modal({title,close,children,className='',guard,guardMessage='Discard your changes?',footer,subtitle}:{title:string;close:()=>void;children:React.ReactNode;className?:string;guard?:()=>boolean;guardMessage?:string;footer?:React.ReactNode;subtitle?:React.ReactNode}){
   const titleId=useId();const ref=useRef<HTMLDialogElement>(null);const pointerStart=useRef<EventTarget|null>(null),drag=useRef<{y:number}|null>(null);
   const {dismiss,confirming,setConfirming}=useDismissLayer(close,guard);
-  useEffect(()=>{ref.current?.showModal();},[]);
+  // Removing an open dialog drops focus to <body>; hand it back to whatever opened it so keyboard users keep their place in the list.
+  useEffect(()=>{const opener=document.activeElement instanceof HTMLElement?document.activeElement:null;ref.current?.showModal();return()=>{const focus=document.activeElement;if(opener?.isConnected&&(!focus||focus===document.body))opener.focus({preventScroll:true});};},[]);
   // A press that starts and ends on the backdrop closes; dragging a text selection out of the sheet does not.
   const outside=(event:React.PointerEvent<HTMLDialogElement>)=>{const box=ref.current?.getBoundingClientRect();return !!box&&event.target===ref.current&&(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom);};
   return <dialog ref={ref} className={`modal ${className}`} aria-labelledby={titleId}
