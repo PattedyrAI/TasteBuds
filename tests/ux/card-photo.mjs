@@ -71,6 +71,26 @@ for(const [name,vp] of [['m',{width:390,height:844,isMobile:true,hasTouch:true,d
   await page.locator('dialog[open]').getByRole('button',{name:'Close'}).click().catch(()=>{});await page.waitForTimeout(800);
   const y2=await page.evaluate(()=>window.scrollY);
   check(y1>vp.height&&Math.abs(y2-y1)<=2,`${name}: deep scroll position kept through a slow refresh (${y1} → ${mid.y} → ${y2})`);
+  if(name==='d'){
+    // 7. A bookmark saved while a refresh is in flight survives that refresh's older snapshot.
+    await page.evaluate(()=>window.scrollTo(0,0));await page.waitForTimeout(300);
+    const first=cards.first(),bookmark=first.locator('.save-item');
+    const before=await bookmark.getAttribute('aria-pressed');
+    await tap(first.locator('h2'));await page.waitForTimeout(800);
+    await detail.getByRole('button',{name:/^Rate it/}).click();await page.waitForTimeout(800);
+    await page.route(/\/api\/groups\/[^/]+\/feed/,async route=>{await new Promise(done=>setTimeout(done,2500));await route.continue();});
+    await page.keyboard.press('Escape');await page.waitForTimeout(400);
+    await page.locator('dialog[open]').getByRole('button',{name:'Close'}).click().catch(()=>{});await page.waitForTimeout(300);
+    await bookmark.click();await page.waitForTimeout(3500);await page.unroute(/\/api\/groups\/[^/]+\/feed/);
+    check(await bookmark.getAttribute('aria-pressed')!==before,`${name}: bookmark saved during a refresh stays saved (${before} → ${await bookmark.getAttribute('aria-pressed')})`);
+    await bookmark.click();await page.waitForTimeout(800);
+    // 8. Group settings show the saved name, not the one from before the refresh.
+    await page.goto(`${base}/app?view=settings`);await page.waitForLoadState('networkidle');
+    const field=page.getByLabel('Group name'),original=await field.inputValue();
+    await field.fill(`${original} test`);await page.getByRole('button',{name:'Save name'}).click();await page.waitForTimeout(1500);
+    check(await field.inputValue()===`${original} test`,`${name}: group name field keeps the saved name (${await field.inputValue()})`);
+    await field.fill(original);await page.getByRole('button',{name:'Save name'}).click();await page.waitForTimeout(1500);
+  }
   check(errs.length===0,`${name}: no console errors ${JSON.stringify(errs.slice(0,3))}`);
   await page.screenshot({path:`${out}/${name}-list.png`});
   await ctx.close();
