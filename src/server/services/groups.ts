@@ -37,8 +37,15 @@ export async function createGroup(userId: string, input: { name: string }): Prom
     await audit(db,userId,id,'group.create',id); return detail(db,userId,id);
   });
 }
+const inviteCodeSchema = z.string().trim().min(20).max(100);
+/** What an invite link may show before joining: only the group name, for an exact current code. */
+export async function previewInvite(code: string): Promise<{ name: string } | null> {
+  const parsed = inviteCodeSchema.safeParse(code); if (!parsed.success) return null;
+  const result = await getPool().query('SELECT name FROM everrate.groups WHERE invite_code=$1',[parsed.data]);
+  return result.rowCount ? { name: result.rows[0].name } : null;
+}
 export async function joinGroup(userId: string, input: { code: string }): Promise<GroupDetail> {
-  validId(userId); const { code } = parse(z.object({code:z.string().trim().min(20).max(100)}),input);
+  validId(userId); const { code } = parse(z.object({code:inviteCodeSchema}),input);
   return transaction(async db=> {
     const result = await db.query('SELECT id FROM everrate.groups WHERE invite_code=$1 FOR UPDATE',[code]);
     if (!result.rowCount) throw new ServiceError(404,'Invite not found');

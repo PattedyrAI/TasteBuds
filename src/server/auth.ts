@@ -2,6 +2,7 @@ import { sessionUser } from '@/lib/supabase/server';
 import { authTemporarilyUnavailable } from '@/lib/supabase/auth-errors';
 import { ensureUser } from './service';
 import {ZodError} from 'zod';
+import type {User} from '@supabase/supabase-js';
 
 export class HttpError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -10,6 +11,10 @@ export async function requireUser() {
   const {data:{user},error}=await sessionUser();
   if(authTemporarilyUnavailable(error))throw new HttpError('Sign-in is temporarily unavailable. Please try again.',503);
   if(error || !user) throw new HttpError('Sign in to continue.',401);
+  return accountFor(user);
+}
+/** Map a getUser-validated Auth user to its canonical TasteBuds account. */
+export async function accountFor(user:User) {
   const identities=user.identities?.filter(identity=>identity.provider==='discord')||[];
   // GoTrue serializes provider_id as `id`; `identity_id` is its internal row UUID.
   // Use only getUser-validated identity fields, never editable user_metadata/sub/email.
