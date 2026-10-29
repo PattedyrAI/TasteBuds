@@ -55,6 +55,8 @@ export function InstallProvider({children}:{children:React.ReactNode}){
   return <InstallContext.Provider value={{ready,installed,platform,available,dismissed,busy,install,dismiss}}>{children}</InstallContext.Provider>;
 }
 
+/** Whether this browser can still install TasteBuds, so settings can offer it. */
+export function useCanInstall(){const state=useContext(InstallContext);return !!state&&state.ready&&!state.installed;}
 export function InstallApp({invitation=false}:{invitation?:boolean}){
   const state=useContext(InstallContext),[help,setHelp]=useState(false);
   if(!state||!state.ready||state.installed)return null;

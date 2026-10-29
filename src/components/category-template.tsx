@@ -5,12 +5,12 @@ import type {Category,CategoryField} from '../lib/contracts';
 import {categoryFieldsSchema} from '../domain/category-template';
 import {Modal,request} from './ui';
 const fieldTypes:Record<CategoryField['type'],string>={text:'Text',number:'Number',price:'Price',select:'Select list',boolean:'Yes / no',location:'Location (Google Maps)'};
-export function CategoryTemplate({groupId,initial,close,created}:{groupId:string;initial?:Category;close:()=>void;created:(category:Category)=>void}){
+export function CategoryTemplate({groupId,initial,close,created,standalone=false}:{groupId:string;initial?:Category;close:()=>void;created:(category:Category)=>void;standalone?:boolean}){
   const [name,setName]=useState(initial?.name||''),[fields,setFields]=useState<CategoryField[]>(initial?.fields||[]);
   const [options,setOptions]=useState<Record<string,string>>(Object.fromEntries((initial?.fields||[]).map(f=>[f.id,(f.options||[]).join('\n')])));
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const update=(id:string,patch:Partial<CategoryField>)=>setFields(current=>current.map(f=>f.id===id?{...f,...patch}:f));
-  return <Modal title={initial?'Edit category template':'Create category'} close={close}><form className="rating-form category-template" onSubmit={async event=>{
+  return <Modal title={initial?`Edit ${initial.name}`:'New category'} close={close}><form className="rating-form category-template" onSubmit={async event=>{
     event.preventDefault();setBusy(true);setError('');
     try{
       const complete=fields.map(field=>({...field,options:field.type==='select'?(options[field.id]||'').split('\n').map(v=>v.trim()).filter(Boolean):undefined}));
@@ -18,7 +18,7 @@ export function CategoryTemplate({groupId,initial,close,created}:{groupId:string
       created(await request<Category>(`/api/groups/${groupId}/categories${initial?'/'+initial.id:''}`,initial?'PATCH':'POST',{name,fields:checked.data}));
     }catch(error){setError(error instanceof Error?error.message:'The category could not be saved.');setBusy(false);}
   }}>
-    <p className="hint">{initial?'Changes apply to new ratings. Earlier ratings keep the fields they were written with.':'Your draft is kept. Decide which extra fields ratings in this category should have, and which can be used as filters.'}</p>
+    <p className="hint">{initial?'Changes apply to new ratings. Earlier ratings keep the fields they were written with.':standalone?'Decide which extra fields ratings in this category should have, and which can be used as filters.':'Your draft is kept. Decide which extra fields ratings in this category should have, and which can be used as filters.'}</p>
     <label>Category name<input autoFocus required maxLength={80} value={name} disabled={busy} onChange={event=>setName(event.target.value)} placeholder="For example Restaurants"/></label>
     <p className="hint">Photo, score, date and note already exist on every rating.</p>
     <div className="template-fields">{fields.map((field,index)=><fieldset className="template-field" key={field.id} disabled={busy}>
@@ -31,7 +31,7 @@ export function CategoryTemplate({groupId,initial,close,created}:{groupId:string
     </fieldset>)}</div>
     <button type="button" className="button secondary" disabled={busy||fields.length>=20} onClick={()=>setFields(current=>[...current,{id:crypto.randomUUID(),label:'',type:'text',required:false,filterable:false}])}><Plus size={17}/>Add field</button>
     {error&&<p className="error" role="alert">{error}</p>}
-    <button className="button primary full" disabled={busy||!name.trim()}>{busy?'Saving…':initial?'Save category template':'Create and continue the rating'}</button>
-    <button type="button" className="text-button" disabled={busy} onClick={close}><ArrowLeft size={16}/>{initial?'Cancel':'Back to the draft'}</button>
+    <button className="button primary full" disabled={busy||!name.trim()}>{busy?'Saving…':initial?'Save fields':standalone?'Create category':'Create and continue the rating'}</button>
+    <button type="button" className="text-button" disabled={busy} onClick={close}><ArrowLeft size={16}/>{initial||standalone?'Cancel':'Back to the draft'}</button>
   </form></Modal>;
 }
