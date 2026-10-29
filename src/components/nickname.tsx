@@ -2,6 +2,8 @@
 import {useId,useState} from 'react';
 import type {User} from '@/lib/contracts';
 import {BrandMark,request} from './ui';
+import {Disclosure} from './disclosure';
+import {InstallApp,useCanInstall} from './install-app';
 
 function NicknameForm({user,saved,onboarding=false}:{user:User;saved:(user:User)=>void;onboarding?:boolean}){
   const [nickname,setNickname]=useState(user.nickname??user.displayName),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -38,26 +40,31 @@ export function NicknameOnboarding({user,saved}:{user:User;saved:(user:User)=>vo
 }
 
 export function AccountSettings({user,saved,preferencesSaved}:{user:User;saved:(user:User)=>void;preferencesSaved:(user:User)=>void}){
-  return <section className="settings" aria-label="Your account"><p className="muted settings-intro">Your name and how you add ratings, across every group.</p>
-    <div className="settings-section"><h2>Your nickname</h2><NicknameForm key={`${user.id}-${user.nickname}`} user={user} saved={saved}/></div>
-    <div className="settings-section"><h2>Photo suggestions</h2><PhotoPreferences key={`${user.id}-${user.aiEnabled}`} user={user} saved={preferencesSaved}/></div>
+  const canInstall=useCanInstall(),[error,setError]=useState('');
+  return <section className="settings settings-region" aria-labelledby="account-settings-title">
+    <header className="settings-region-head"><div><h2 id="account-settings-title">Your account</h2><p className="hint">Your name and how you add ratings, in every group.</p></div></header>
+    <div className="settings-list">
+      <Disclosure title="Nickname" summary={user.nickname}><NicknameForm key={`${user.id}-${user.nickname}`} user={user} saved={saved}/></Disclosure>
+      <Disclosure title="Photo suggestions" summary={user.aiEnabled?'On':'Off'}><PhotoPreferences key={`${user.id}-${user.aiEnabled}`} user={user} saved={preferencesSaved}/></Disclosure>
+      {canInstall&&<Disclosure title="This device" summary="Not installed"><p className="hint">Open TasteBuds from your home screen or desktop, ready to take photos.</p><InstallApp/></Disclosure>}
+    </div>
+    <div className="settings-footer"><button className="text-button" onClick={()=>void request('/auth/logout','POST',{}).then(()=>window.location.href='/').catch(e=>setError(e.message))}>Sign out</button>{error&&<p className="error" role="alert">{error}</p>}</div>
   </section>;
 }
 
 function PhotoPreferences({user,saved}:{user:User;saved:(user:User)=>void}){
   const [enabled,setEnabled]=useState(user.aiEnabled),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const descriptionId=useId();
-  async function submit(event:React.FormEvent){
-    event.preventDefault();if(busy||enabled===user.aiEnabled)return;
-    setBusy(true);setError('');
-    try{saved(await request<User>('/api/me/preferences','PATCH',{aiEnabled:enabled}));}
-    catch(e){setError(e instanceof Error?e.message:'Could not save your photo preference. Try again.');}
+  async function change(next:boolean){
+    if(busy)return;
+    setBusy(true);setError('');setEnabled(next);
+    try{saved(await request<User>('/api/me/preferences','PATCH',{aiEnabled:next}));}
+    catch(e){setEnabled(!next);setError(e instanceof Error?e.message:'Could not save your photo preference. Try again.');}
     finally{setBusy(false);}
   }
-  return <form className="rating-form" aria-label="Photo suggestions" aria-busy={busy} onSubmit={submit}>
-    <label className="switch-field preference-switch"><input type="checkbox" role="switch" checked={enabled} disabled={busy} aria-describedby={descriptionId} onChange={event=>{setEnabled(event.target.checked);setError('');}}/><span className="switch" aria-hidden="true"/><span><strong>Suggest details from my photos with AI</strong></span></label>
+  return <div className="rating-form" aria-busy={busy}>
+    <label className="switch-field preference-switch"><input type="checkbox" role="switch" checked={enabled} disabled={busy} aria-describedby={descriptionId} onChange={event=>void change(event.target.checked)}/><span className="switch" aria-hidden="true"/><span><strong>Suggest details from my photos with AI</strong></span></label>
     <p id={descriptionId} className="hint">Off by default. When off, your photos aren’t sent to AI and you enter item details yourself. When on, you can tap “Fill in from photo” to send a photo to Google Gemini. Uploading alone never starts AI. A photo is required either way.</p>
     {error&&<p className="error" role="alert">{error}</p>}
-    <button className="button primary" disabled={busy||enabled===user.aiEnabled}>{busy?'Saving preference…':'Save photo preference'}</button>
-  </form>;
+  </div>;
 }
