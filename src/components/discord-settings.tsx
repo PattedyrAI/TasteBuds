@@ -29,7 +29,11 @@ function Channel({groupId,route,connection,categories,changed}:{groupId:string;r
   const picks=route==='energy_drinks',saved=connection?.categoryIds??[];
   const [enabled,setEnabled]=useState(connection?.enabled??false),[selected,setSelected]=useState(saved);
   const [linked,setLinked]=useState(!!connection),[replacing,setReplacing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState('');
-  const categoriesChanged=picks&&(selected.length!==saved.length||selected.some(id=>!saved.includes(id)));
+  const differs=(a:string[],b:string[])=>a.length!==b.length||a.some(id=>!b.includes(id));
+  // Rows keep their state across refreshes; adopt newer server state (e.g. another owner's change) unless a save is in flight or categories are being edited.
+  const snapshot=JSON.stringify(connection??null),[seen,setSeen]=useState(snapshot);
+  if(snapshot!==seen&&!busy){const before=(JSON.parse(seen) as DiscordConnection|null)?.categoryIds??[];setSeen(snapshot);setLinked(!!connection);setEnabled(connection?.enabled??false);if(!differs(selected,before))setSelected(saved);}
+  const categoriesChanged=picks&&differs(selected,saved);
   async function send(next:{enabled:boolean;url?:string},message:string){
     const previous=enabled;
     setBusy(true);setError('');setDone('');setEnabled(next.enabled);

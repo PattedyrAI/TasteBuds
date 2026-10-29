@@ -14,13 +14,14 @@ export function InviteButton({group,changed,className='button secondary',compact
 }
 
 function InviteDialog({group,changed,close}:{group:GroupDetail;changed:()=>void;close:()=>void}){
-  const link=inviteLink(window.location.origin,group.inviteCode||'');
+  // The reset response is authoritative, so copy and share never offer a revoked link while the group refreshes.
+  const [code,setCode]=useState(group.inviteCode||''),link=inviteLink(window.location.origin,code);
   const [copied,setCopied]=useState<'link'|'code'|null>(null),[resetting,setResetting]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
   const canShare=typeof navigator.share==='function';
   useEffect(()=>{if(!copied)return;const timer=setTimeout(()=>setCopied(null),2000);return()=>clearTimeout(timer);},[copied]);
   async function copy(value:string,what:'link'|'code'){setError('');try{await navigator.clipboard.writeText(value);setCopied(what);}catch{setError('Copying isn’t allowed here. Select the link and copy it yourself.');}}
   async function share(){try{await navigator.share({title:`Join ${group.name} on TasteBuds`,url:link});}catch(e){if(!(e instanceof DOMException&&e.name==='AbortError'))void copy(link,'link');}}
-  async function reset(){setBusy(true);setError('');try{await request(`/api/groups/${group.id}/invite`,'POST',{});setStatus('New link ready. Old links and codes no longer work.');setResetting(false);changed();}catch(e){setError(e instanceof Error?e.message:'Could not reset the link.');}finally{setBusy(false);}}
+  async function reset(){setBusy(true);setError('');try{const fresh=await request<{inviteCode:string}>(`/api/groups/${group.id}/invite`,'POST',{});setCode(fresh.inviteCode);setStatus('New link ready. Old links and codes no longer work.');setResetting(false);changed();}catch(e){setError(e instanceof Error?e.message:'Could not reset the link.');}finally{setBusy(false);}}
   const shown=group.members.slice(0,5);
   return <Modal title="Invite people" subtitle={group.name} close={close} className="invite-dialog">
     <p className="hint">Anyone with this link can join by signing in with Discord. Share it with people you trust.</p>
@@ -30,7 +31,7 @@ function InviteDialog({group,changed,close}:{group:GroupDetail;changed:()=>void;
     {status&&<p className="success" role="status">{status}</p>}{error&&<p className="error" role="alert">{error}</p>}
     <div className="invite-more">
       {resetting?<div className="inline-confirm"><p>Reset the link? Anyone who hasn’t joined yet will need the new one.</p><button disabled={busy} onClick={()=>void reset()}>{busy?'Resetting…':'Reset link'}</button><button disabled={busy} onClick={()=>setResetting(false)}>Cancel</button></div>
-      :<><button type="button" className="text-button" onClick={()=>void copy(group.inviteCode||'',`code`)}>{copied==='code'?'Code copied':'Copy code instead'}</button><button type="button" className="text-button" onClick={()=>{setStatus('');setResetting(true);}}>Reset link</button></>}
+      :<><button type="button" className="text-button" onClick={()=>void copy(code,'code')}>{copied==='code'?'Code copied':'Copy code instead'}</button><button type="button" className="text-button" onClick={()=>{setStatus('');setResetting(true);}}>Reset link</button></>}
     </div>
   </Modal>;
 }
