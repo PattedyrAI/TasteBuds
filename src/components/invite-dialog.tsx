@@ -14,14 +14,16 @@ export function InviteButton({group,changed,className='button secondary',compact
 }
 
 function InviteDialog({group,changed,close}:{group:GroupDetail;changed:()=>void;close:()=>void}){
-  // The reset response is authoritative, so copy and share never offer a revoked link while the group refreshes.
-  const [code,setCode]=useState(group.inviteCode||''),link=inviteLink(window.location.origin,code);
+  // Follow refreshed codes (another owner may reset the link), but never fall back to one this dialog just revoked.
+  const [code,setCode]=useState(group.inviteCode||''),[seen,setSeen]=useState(group.inviteCode),[revoked,setRevoked]=useState<string[]>([]);
+  if(group.inviteCode!==seen){setSeen(group.inviteCode);if(group.inviteCode&&!revoked.includes(group.inviteCode))setCode(group.inviteCode);}
+  const link=inviteLink(window.location.origin,code);
   const [copied,setCopied]=useState<'link'|'code'|null>(null),[resetting,setResetting]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
   const canShare=typeof navigator.share==='function';
   useEffect(()=>{if(!copied)return;const timer=setTimeout(()=>setCopied(null),2000);return()=>clearTimeout(timer);},[copied]);
   async function copy(value:string,what:'link'|'code'){setError('');try{await navigator.clipboard.writeText(value);setCopied(what);}catch{setError('Copying isn’t allowed here. Select the link and copy it yourself.');}}
   async function share(){try{await navigator.share({title:`Join ${group.name} on TasteBuds`,url:link});}catch(e){if(!(e instanceof DOMException&&e.name==='AbortError'))void copy(link,'link');}}
-  async function reset(){setBusy(true);setError('');try{const fresh=await request<{inviteCode:string}>(`/api/groups/${group.id}/invite`,'POST',{});setCode(fresh.inviteCode);setStatus('New link ready. Old links and codes no longer work.');setResetting(false);changed();}catch(e){setError(e instanceof Error?e.message:'Could not reset the link.');}finally{setBusy(false);}}
+  async function reset(){setBusy(true);setError('');try{const fresh=await request<{inviteCode:string}>(`/api/groups/${group.id}/invite`,'POST',{});setRevoked(current=>[...current,code]);setCode(fresh.inviteCode);setStatus('New link ready. Old links and codes no longer work.');setResetting(false);changed();}catch(e){setError(e instanceof Error?e.message:'Could not reset the link.');}finally{setBusy(false);}}
   const shown=group.members.slice(0,5);
   return <Modal title="Invite people" subtitle={group.name} close={close} className="invite-dialog">
     <p className="hint">Anyone with this link can join by signing in with Discord. Share it with people you trust.</p>
