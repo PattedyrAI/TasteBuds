@@ -144,8 +144,11 @@ describe.skipIf(!url)('private PostgreSQL application service', () => {
   it('rotates invitations and restricts member removal', async () => {
     const prior = (await service.getGroup(users[0],groupId)).inviteCode!;
     await expect(service.rotateInvite(users[1],groupId)).rejects.toMatchObject({status:403});
+    expect(await service.previewInvite(prior)).toEqual({name:expect.stringMatching(/^Integration /)});
     const fresh = await service.rotateInvite(users[0],groupId);
     expect(fresh.inviteCode).not.toBe(prior);
+    expect(await service.previewInvite(prior)).toBeNull();
+    expect(await service.previewInvite('x')).toBeNull();
     await expect(service.joinGroup(users[2],{code:prior})).rejects.toMatchObject({status:404});
     await service.joinGroup(users[2],{code:fresh.inviteCode});
     await expect(service.removeMember(users[1],groupId,users[2])).rejects.toMatchObject({status:403});
