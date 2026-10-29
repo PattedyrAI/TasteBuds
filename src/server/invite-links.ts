@@ -12,11 +12,15 @@ export async function acceptInvite(user:User,code:string){
   try{const group=await joinGroup(await accountFor(user),{code});return `/app?group=${encodeURIComponent(group.id)}`;}
   catch(error){if(!(error&&typeof error==='object'&&'status' in error&&typeof error.status==='number'&&error.status<500))console.error('Invite join failed',{kind:error instanceof Error?error.name:'Unknown'});return `${invitePath(code)}?error=join`;}
 }
-/** After the OAuth exchange, finish a pending invite; otherwise continue to the app. */
-export async function acceptPendingInvite(client:SupabaseClient){
+/** Drop any pending invite, so an abandoned invite sign-in never carries into a later one. Returns the dropped code. */
+export async function takePendingInvite(){
   const jar=await cookies(),code=jar.get(PENDING)?.value;
+  if(code!==undefined)jar.set(PENDING,'',{httpOnly:true,path:'/auth',maxAge:0});
+  return code||null;
+}
+/** After a successful OAuth exchange, finish the pending invite taken for this callback; otherwise continue to the app. */
+export async function acceptPendingInvite(client:SupabaseClient,code:string|null){
   if(!code)return '/app';
-  jar.set(PENDING,'',{httpOnly:true,path:'/auth',maxAge:0});
   const {data:{user},error}=await client.auth.getUser();
   return !error&&user?acceptInvite(user,code):invitePath(code);
 }

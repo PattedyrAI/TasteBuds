@@ -5,6 +5,7 @@ vi.mock('../src/lib/supabase/server',()=>({sessionUser:async()=>mocks.getUser(),
 vi.mock('../src/server/service',()=>({previewInvite:mocks.previewInvite,joinGroup:mocks.joinGroup,ensureUser:mocks.ensureUser}));
 import {POST} from '../src/app/auth/join/route';
 import {GET} from '../src/app/auth/callback/route';
+import {GET as login} from '../src/app/auth/login/route';
 import {inviteCode,inviteLink} from '../src/lib/invite-link';
 
 const origin='https://tastebuds.example',code='AbCdEfGhIjKlMnOpQrStUvWxYz012345-_ab';
@@ -59,5 +60,25 @@ describe('invite links',()=>{
     expect(mocks.joinGroup).not.toHaveBeenCalled();
     mocks.jar.set('tastebuds_invite',{value:code});mocks.joinGroup.mockRejectedValue(Object.assign(new Error('Invite not found'),{status:404}));
     expect((await GET(new Request(origin+'/auth/callback?code=oauth-code'))).headers.get('location')).toBe(`${origin}/join/${code}?error=join`);
+  });
+  it('drops an abandoned invite when Discord is cancelled or a normal sign-in starts',async()=>{
+    mocks.jar.set('tastebuds_invite',{value:code});
+    expect((await GET(new Request(origin+'/auth/callback?error=access_denied'))).headers.get('location')).toBe(`${origin}/?error=login`);
+    expect(pending()?.options).toMatchObject({path:'/auth',maxAge:0});
+    mocks.jar.set('tastebuds_invite',{value:code});
+    await login(new Request(origin+'/auth/login'));
+    expect(pending()?.options).toMatchObject({path:'/auth',maxAge:0});
+    mocks.exchange.mockResolvedValue({error:null});mocks.clientUser.mockResolvedValue({data:{user:authUser},error:null});
+    mocks.jar.delete('tastebuds_invite');
+    expect((await GET(new Request(origin+'/auth/callback?code=oauth-code'))).headers.get('location')).toBe(`${origin}/app`);
+    expect(mocks.joinGroup).not.toHaveBeenCalled();
+  });
+  it('checks the origin before reading the body and refuses oversized bodies',async()=>{
+    let read=false;
+    const body=new ReadableStream({pull(controller){read=true;controller.enqueue(new TextEncoder().encode('code='+code));controller.close();}},{highWaterMark:0});
+    const forged=await POST(new Request(origin+'/auth/join',{method:'POST',headers:{origin:'https://evil.example'},body,duplex:'half'} as RequestInit));
+    expect(forged.headers.get('location')).toBe(`${origin}/`);expect(read).toBe(false);
+    const huge=await POST(join('code='+code+'&pad='+'x'.repeat(2_000)));
+    expect(huge.headers.get('location')).toBe(`${origin}/`);expect(mocks.previewInvite).not.toHaveBeenCalled();
   });
 });
