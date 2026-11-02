@@ -1,3 +1,4 @@
+import {importRatings} from '@/server/services/rating-import';
 import {api,HttpError} from '@/server/auth';
 import * as service from '@/server/service';
 import {recognize} from '@/server/recognition';
@@ -20,6 +21,7 @@ async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}
     }
     if(p.join('/')==='groups/join'&&method==='POST')return service.joinGroup(userId,body as {code:string});
     if(p[0]==='groups'&&p[1]){
+      if(p.length===3&&p[2]==='import-ratings'&&method==='POST')return importRatings(userId,p[1],body);
       if(p.length===3&&p[2]==='maps-config'&&method==='GET')return getMapsConfiguration(userId,p[1]);
       if(p.length===3&&p[2]==='categories'&&method==='POST')return createCategory(userId,p[1],body);
       if(p.length===4&&p[2]==='categories'&&method==='PATCH')return updateCategory(userId,p[1],p[3],body);

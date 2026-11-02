@@ -1,9 +1,10 @@
 'use client';
+import {ImportRatings} from './import-ratings';
 import {canManageGroup} from '../domain/group-roles';
 import {CategoryTemplate} from './category-template';
 import {useState} from 'react';
 import {Plus} from 'lucide-react';
-import type {Category,CategoryField,GroupDetail,User} from '@/lib/contracts';
+import type {Category,CategoryField,Group,GroupDetail,User} from '@/lib/contracts';
 import {Avatar,request} from './ui';
 import {DiscordSettings,discordSummary} from './discord-settings';
 import {Disclosure} from './disclosure';
@@ -21,7 +22,7 @@ function CategoryRow({category,edit}:{category:Category;edit:()=>void}){
   </Disclosure>;
 }
 
-export function GroupSettings({group,user,changed}:{group:GroupDetail;user:User;changed:()=>void}){
+export function GroupSettings({group,user,groups,changed}:{group:GroupDetail;user:User;groups:Group[];changed:(message?:string)=>void}){
   const [name,setName]=useState(group.name),[error,setError]=useState(''),[success,setSuccess]=useState(''),[busy,setBusy]=useState(false),[confirming,setConfirming]=useState<string|null>(null);
   const [editingCategory,setEditingCategory]=useState<Category|'new'|null>(null);
   const owner=canManageGroup(group.role),categories=group.categories||[];
@@ -32,6 +33,7 @@ export function GroupSettings({group,user,changed}:{group:GroupDetail;user:User;
   return <section className="settings settings-region" aria-labelledby="group-settings-title">
     <header className="settings-region-head"><div><h2 id="group-settings-title">{group.name}</h2><p className="hint">{owner?'Group settings apply to everyone in the group.':'You’re a member of this group.'}</p></div><InviteButton group={group} changed={changed}/></header>
     {error&&<p className="error" role="alert">{error}</p>}{success&&<p className="success" role="status">{success}</p>}
+    <ImportRatings group={group} groups={groups} changed={changed}/>
     <div className="settings-list">
       <Disclosure title="Members" summary={<><span className="avatar-stack" aria-hidden="true">{group.members.slice(0,4).map(m=><Avatar key={m.id} name={m.displayName} url={m.avatarUrl}/>)}</span>{plural(group.members.length,'person','people')}</>}>
         {group.members.map(m=><div key={m.id}><div className="member"><Avatar name={m.displayName} url={m.avatarUrl}/><div><strong>{m.displayName}{m.id===user.id?' (you)':''}</strong><small>{m.role==='admin'?'Platform admin':m.role==='owner'?'Owner':'Member'}</small></div>
