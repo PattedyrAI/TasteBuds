@@ -10,6 +10,7 @@ if(url&&(!['localhost','127.0.0.1','[::1]'].includes(new URL(url).hostname)||!ne
 if(url)process.env.DATABASE_URL=url;
 const energyHook='https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz';
 const foodHook='https://discord.com/api/webhooks/223456789012345678/abcdefghijklmnopqrstuvwxyz';
+const otherHook='https://discord.com/api/webhooks/323456789012345678/abcdefghijklmnopqrstuvwxyz';
 const owner=randomUUID(),member=randomUUID();
 const ownerName='Route owner '+owner;
 let groupId:string,photoId:string,energyId:string,foodId:string;
@@ -151,5 +152,85 @@ describe.skipIf(!url)('Discord category destinations',()=>{
     await expect(connect('unknown',[foodId])).rejects.toBeDefined();
     await expect(connect('energy_drinks',[])).rejects.toMatchObject({status:400});
     expect((await getPool().query('SELECT 1 FROM everrate.discord_connections WHERE group_id=$1',[groupId])).rowCount).toBe(0);
+  });
+
+  it('sends unmatched and untyped reviews to other without duplicating the specific channels',async()=>{
+    await connect('energy_drinks',[energyId]);await connect('food',[]);await connect('other',[],otherHook);
+    const energy=await rate('Energy drinks');
+    const food=await createRating(owner,{brand:'Fixture',groupId,name:'Lunch',broadCategory:'Food',photoId,score:8});
+    const coffee=await rate('Coffee');
+    const untyped=await createRating(owner,{brand:'Fixture',groupId,name:'Something new',photoId,score:7});
+    const routes=async(id:string)=>(await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[id])).rows;
+    expect(await routes(energy.id)).toEqual([{route:'energy_drinks'}]);
+    expect(await routes(food.id)).toEqual([{route:'food'}]);
+    expect(await routes(coffee.id)).toEqual([{route:'other'}]);
+    expect(await routes(untyped.id)).toEqual([{route:'other'}]);
+    await processDiscordOutbox();
+    const post=posted.find(post=>post.body.embeds[0].url.endsWith(coffee.itemId));
+    expect(post?.target).toBe(otherHook+'?wait=true&with_components=true');
+    expect(post?.photo).toBe('photo');
+  });
+
+  it('keeps Food and energy drinks out of other when their destinations are absent or disabled',async()=>{
+    await connect('other',[],otherHook);
+    const first=await rate('Energy drinks');
+    const food=await createRating(owner,{brand:'Fixture',groupId,name:'Food without channel',broadCategory:'Food',photoId,score:8});
+    const legacyFood=await rate('Pizza');
+    for(const rating of [first,food,legacyFood])expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([]);
+    // Imported labels may predate the canonical category names.
+    await getPool().query('UPDATE everrate.item_types SET name=$1 WHERE id=$2',[' burger  ',foodId]);
+    await getPool().query('UPDATE everrate.item_types SET name=$1 WHERE id=$2',[' energy   drink ',energyId]);
+    for(const item of [first,legacyFood]){
+      const rereview=await createRating(owner,{groupId,itemId:item.itemId,photoId,score:9,idempotencyKey:randomUUID()});
+      expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[rereview.id])).rows).toEqual([]);
+    }
+    await getPool().query('UPDATE everrate.item_types SET name=$1 WHERE id=$2',['Energy drinks',energyId]);
+    await connect('energy_drinks',[energyId]);
+    const coffee=await rate('Coffee');
+    await connectDiscord(owner,groupId,{route:'energy_drinks',enabled:false});
+    expect((await getPool().query('SELECT status FROM everrate.discord_outbox WHERE rating_id=$1',[coffee.id])).rows).toEqual([{status:'pending'}]);
+    const next=await rate('Energy drinks');
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[next.id])).rows).toEqual([]);
+    await processDiscordOutbox();expect(posted).toHaveLength(1);
+    expect(posted.every(post=>post.target===otherHook+'?wait=true&with_components=true')).toBe(true);
+  });
+
+  it('rechecks other before delivery and never redirects an edited queued review',async()=>{
+    await connect('food',[]);await connect('other',[],otherHook);
+    const rating=await rate('Coffee');
+    await getPool().query("UPDATE everrate.items SET broad_category='Food' WHERE id=$1",[rating.itemId]);
+    await processDiscordOutbox();expect(posted).toEqual([]);
+    expect((await getPool().query('SELECT route,status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{route:'other',status:'cancelled'}]);
+  });
+
+  it('keeps food separate without moving disabled energy-drink reviews to other',async()=>{
+    await connect('energy_drinks',[energyId]);await connect('food',[]);
+    await connect('other',[],otherHook);
+    await connectDiscord(owner,groupId,{route:'energy_drinks',enabled:false});
+    const energy=await rate('Energy drinks');
+    const food=await createRating(owner,{brand:'Fixture',groupId,name:'Lunch',broadCategory:'Food',photoId,score:8});
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[energy.id])).rows).toEqual([]);
+    expect((await getPool().query('SELECT route FROM everrate.discord_outbox WHERE rating_id=$1',[food.id])).rows).toEqual([{route:'food'}]);
+    await getPool().query("UPDATE everrate.discord_outbox SET created_at='0001-01-01T00:00:00Z' WHERE rating_id=$1",[food.id]);
+    await processDiscordOutbox();
+    expect(posted.some(post=>post.body.embeds[0].url.endsWith(energy.itemId))).toBe(false);
+    expect(posted.find(post=>post.body.embeds[0].url.endsWith(food.itemId))?.target).toBe(foodHook+'?wait=true&with_components=true');
+  });
+  it('cancels an old other-queue entry after it becomes energy even with the energy channel disabled',async()=>{
+    await connect('other',[],otherHook);await connect('energy_drinks',[energyId]);
+    const rating=await rate('Coffee');
+    await connectDiscord(owner,groupId,{route:'energy_drinks',enabled:false});
+    await getPool().query('UPDATE everrate.items SET type_id=$1 WHERE id=$2',[energyId,rating.itemId]);
+    await processDiscordOutbox();expect(posted).toEqual([]);
+    expect((await getPool().query('SELECT route,status FROM everrate.discord_outbox WHERE rating_id=$1',[rating.id])).rows).toEqual([{route:'other',status:'cancelled'}]);
+  });
+
+  it('keeps other exclusive with all and rejects category filters',async()=>{
+    await expect(connect('other',[foodId],otherHook)).rejects.toMatchObject({status:400});
+    await connect('other',[],otherHook);
+    await expect(connectDiscord(owner,groupId,{url:foodHook,enabled:true})).rejects.toMatchObject({status:409});
+    await connectDiscord(owner,groupId,{route:'other',enabled:false});
+    await connectDiscord(owner,groupId,{url:foodHook,enabled:true});
+    await expect(connect('other',[],otherHook)).rejects.toMatchObject({status:409});
   });
 });

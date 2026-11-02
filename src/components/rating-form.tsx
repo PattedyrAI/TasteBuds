@@ -122,6 +122,8 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   const usage=new Map<string,number>();for(const i of items)if(i.type)usage.set(canonicalItemType(i.type).toLowerCase(),(usage.get(canonicalItemType(i.type).toLowerCase())??0)+i.tastingCount);
   const rankedTypes=[...typeChoices].sort((a,b)=>(usage.get(b.toLowerCase())??0)-(usage.get(a.toLowerCase())??0)||a.localeCompare(b));
   const quickTypes=rankedTypes.slice(0,6),selectedType=typeChoices.find(t=>t.toLowerCase()===canonicalItemType(type).toLowerCase())??(type||'');
+  const cocktails=kind==='Drink'?(typeChoices.find(t=>t.toLowerCase()==='cocktails')??typeChoices.find(t=>t.toLowerCase()==='cocktail')):undefined;
+  if(cocktails&&!quickTypes.includes(cocktails))quickTypes.push(cocktails);
   if(selectedType&&!quickTypes.some(t=>t.toLowerCase()===selectedType.toLowerCase()))quickTypes.push(selectedType);
   const linked=!!itemId&&!editing;
   const title=editing?'Edit your rating':rereviewing?'Rate it again':linked&&item?`Rate ${item.name}`:'Rate something';

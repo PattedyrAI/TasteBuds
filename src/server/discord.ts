@@ -1,12 +1,12 @@
 import {query,transaction} from './db';
 import {HttpError} from './auth';
-import {decryptWebhook,encryptWebhook,makeRatingEmbed} from './discord-format';
+import {decryptWebhook,encryptWebhook,makeRatingEmbed,type RecentRating} from './discord-format';
 import {z} from 'zod';
 import {requireMembership} from './service';
 import {discordItemMatchesRoute} from './discord-routing';
 
 export async function connectDiscord(userId:string,groupId:string,input:unknown){
-  z.uuid().parse(groupId);const v=z.object({url:z.string().max(400).optional(),enabled:z.boolean(),route:z.enum(['all','energy_drinks','food']).default('all'),categoryIds:z.array(z.uuid()).max(500).optional()}).strict().parse(input);
+  z.uuid().parse(groupId);const v=z.object({url:z.string().max(400).optional(),enabled:z.boolean(),route:z.enum(['all','energy_drinks','food','other']).default('all'),categoryIds:z.array(z.uuid()).max(500).optional()}).strict().parse(input);
   let encrypted:string|undefined;
   if(v.url){try{encrypted=encryptWebhook(v.url,process.env.DISCORD_ENCRYPTION_KEY||'');}catch{throw new HttpError('Enter a valid Discord channel webhook URL.',400);}}
   return transaction(async tx=>{
@@ -15,20 +15,20 @@ export async function connectDiscord(userId:string,groupId:string,input:unknown)
     await requireMembership(tx,userId,groupId,true);
     const existing=await tx.query<{category_ids:string[]}>('SELECT category_ids FROM everrate.discord_connections WHERE group_id=$1 AND route=$2',[groupId,v.route]);
     const categoryIds=[...new Set(v.categoryIds??existing.rows[0]?.category_ids??[])];
-    if(v.route==='all'&&categoryIds.length)throw new HttpError('The all-reviews connection cannot filter categories.',400);
+    if((v.route==='all'||v.route==='other')&&categoryIds.length)throw new HttpError('This connection cannot filter categories.',400);
     if(v.route==='energy_drinks'&&v.enabled&&!categoryIds.length)throw new HttpError('Choose the categories for this channel.',400);
     if(categoryIds.length){
       const categories=await tx.query('SELECT id FROM everrate.item_types WHERE group_id=$1 AND id=ANY($2::uuid[])',[groupId,categoryIds]);
       if(categories.rowCount!==categoryIds.length)throw new HttpError('Choose categories from this group.',400);
     }
     if(v.enabled){
-      const overlap=await tx.query("SELECT 1 FROM everrate.discord_connections WHERE group_id=$1 AND route<>$2 AND enabled AND ($2='all' OR route='all' OR category_ids && $3::uuid[])",[groupId,v.route,categoryIds]);
+      const overlap=await tx.query("SELECT 1 FROM everrate.discord_connections WHERE group_id=$1 AND route<>$2 AND enabled AND ($2='all' OR route='all' OR ($2<>'other' AND route<>'other' AND category_ids && $3::uuid[]))",[groupId,v.route,categoryIds]);
       if(overlap.rowCount)throw new HttpError('These categories already share to another channel. Disable or update that connection first.',409);
     }
     if(encrypted)await tx.query('INSERT INTO everrate.discord_connections(group_id,route,category_ids,webhook_encrypted,enabled,updated_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(group_id,route) DO UPDATE SET category_ids=$3,webhook_encrypted=$4,enabled=$5,updated_by=$6,updated_at=now()',[groupId,v.route,categoryIds,encrypted,v.enabled,userId]);
     else {const r=await tx.query('UPDATE everrate.discord_connections SET category_ids=$3,enabled=$4,updated_by=$5,updated_at=now() WHERE group_id=$1 AND route=$2',[groupId,v.route,categoryIds,v.enabled,userId]);if(!r.rowCount&&v.enabled)throw new HttpError('Add a Discord channel connection first.',400);}
-    await tx.query(`UPDATE everrate.discord_outbox o SET status='cancelled' WHERE o.group_id=$1 AND o.route=$2 AND o.status IN ('pending','processing','failed')
-      AND (NOT $3::boolean OR NOT EXISTS(SELECT 1 FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.route=o.route WHERE r.id=o.rating_id AND r.group_id=o.group_id AND ${discordItemMatchesRoute}))`,[groupId,v.route,v.enabled]);
+    await tx.query(`UPDATE everrate.discord_outbox o SET status='cancelled' WHERE o.group_id=$1 AND (o.route=$2 OR o.route='other') AND o.status IN ('pending','processing','failed')
+      AND NOT EXISTS(SELECT 1 FROM everrate.ratings r JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id JOIN everrate.discord_connections d ON d.group_id=r.group_id AND d.route=o.route WHERE r.id=o.rating_id AND r.group_id=o.group_id AND d.enabled AND ${discordItemMatchesRoute})`,[groupId,v.route]);
     await tx.query("INSERT INTO everrate.audit_events(group_id,actor_id,action,details) VALUES($1,$2,'discord.connection.updated',$3)",[groupId,userId,{enabled:v.enabled,route:v.route,categoryIds}]);
     return {connected:v.enabled};
   });
@@ -47,10 +47,16 @@ export async function processDiscordOutbox(){
   for(const row of claimed){
     // Recheck each entry after earlier sends: a disconnect, rotation, deletion or
     // replacement worker may have invalidated the original batch claim.
-    const current=await query<{webhook_encrypted:string;route:string;photo_id:string|null;photo_data:Buffer|null;photo_mime:string|null;created_at:Date;payload:{itemName:string;brand?:string|null;variant?:string|null;authorName:string;score:number;note?:string|null;itemId:string;groupName?:string|null;isRereview?:boolean}}>(
-      `SELECT o.payload,o.created_at,d.webhook_encrypted,d.route,r.photo_id,p.data AS photo_data,p.mime_type AS photo_mime FROM everrate.discord_outbox o JOIN everrate.discord_connections d USING(group_id,route) JOIN everrate.ratings r ON r.id=o.rating_id AND r.group_id=o.group_id JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id LEFT JOIN everrate.photos p ON p.id=r.photo_id AND p.group_id=o.group_id WHERE o.id=$1 AND o.status='processing' AND o.attempts=$2 AND d.enabled=true AND r.deleted_at IS NULL AND r.source='app' AND ${discordItemMatchesRoute}`,[row.id,row.attempts]);
+    const current=await query<{webhook_encrypted:string;route:string;reviewer_discord_id:string|null;photo_id:string|null;photo_data:Buffer|null;photo_mime:string|null;created_at:Date;recent_ratings:RecentRating[];payload:{itemName:string;brand?:string|null;variant?:string|null;authorName:string;score:number;note?:string|null;itemId:string;groupName?:string|null;isRereview?:boolean}}>(
+      `SELECT o.payload,o.created_at,d.webhook_encrypted,d.route,u.discord_id AS reviewer_discord_id,r.photo_id,p.data AS photo_data,p.mime_type AS photo_mime,
+        ARRAY(SELECT jsonb_build_object('discordId',u.discord_id,'displayName',coalesce(u.nickname,u.display_name),'score',h.score)
+          FROM everrate.ratings h JOIN everrate.users u ON u.id=h.user_id
+          WHERE h.item_id=r.item_id AND h.group_id=r.group_id AND h.deleted_at IS NULL
+            AND (h.tasted_at,h.created_at,h.id)<(r.tasted_at,r.created_at,r.id)
+          ORDER BY h.tasted_at DESC,h.created_at DESC,h.id DESC LIMIT 3) AS recent_ratings
+        FROM everrate.discord_outbox o JOIN everrate.discord_connections d USING(group_id,route) JOIN everrate.ratings r ON r.id=o.rating_id AND r.group_id=o.group_id JOIN everrate.users u ON u.id=r.user_id JOIN everrate.items i ON i.id=r.item_id AND i.group_id=r.group_id LEFT JOIN everrate.photos p ON p.id=r.photo_id AND p.group_id=o.group_id WHERE o.id=$1 AND o.status='processing' AND o.attempts=$2 AND d.enabled=true AND r.deleted_at IS NULL AND r.source='app' AND ${discordItemMatchesRoute}`,[row.id,row.attempts]);
     if(!current.rowCount){await query("UPDATE everrate.discord_outbox SET status='cancelled' WHERE id=$1 AND status='processing' AND attempts=$2",[row.id,row.attempts]);continue;}
-    const {webhook_encrypted,payload,created_at,route,photo_id,photo_data,photo_mime}=current.rows[0];
+    const {webhook_encrypted,payload,created_at,route,reviewer_discord_id,photo_id,photo_data,photo_mime,recent_ratings}=current.rows[0];
     let retry=30,status='failed';
     try {
       const url=decryptWebhook(webhook_encrypted,process.env.DISCORD_ENCRYPTION_KEY||'');
@@ -58,7 +64,7 @@ export async function processDiscordOutbox(){
       const extension=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'} as Record<string,string>)[photo_mime||''];
       if(photo_id&&(!photo_data?.length||!extension||photo_data.length>10*1024*1024))throw new Error('Review photo unavailable');
       const photoFilename=photo_data?`review.${extension}`:undefined;
-      const message=makeRatingEmbed({...payload,displayName:payload.authorName,photoFilename,ratedAt:created_at?.toISOString(),category:route==='energy_drinks'?'Energy-drink review':route==='food'?'Food review':undefined},process.env.APP_URL!);
+      const message=makeRatingEmbed({...payload,discordId:reviewer_discord_id,recentRatings:recent_ratings,displayName:payload.authorName,photoFilename,ratedAt:created_at?.toISOString(),category:route==='energy_drinks'?'Energy-drink review':route==='food'?'Food review':undefined},process.env.APP_URL!);
       let body:string|FormData=JSON.stringify(message);
       if(photo_data&&photoFilename){
         const form=new FormData();

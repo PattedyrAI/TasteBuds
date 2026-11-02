@@ -1,4 +1,4 @@
-import {canonicalItemType} from './item-types';
+import {canonicalItemType,itemTypeAliasNames} from './item-types';
 
 export type ReviewKind='Food'|'Drink'|'Other';
 export const reviewKinds:readonly ReviewKind[]=['Food','Drink','Other'];
@@ -11,6 +11,10 @@ const types:Record<ReviewKind,readonly string[]>={
 const known=new Map(reviewKinds.flatMap(kind=>types[kind].map(type=>[canonicalItemType(type).toLowerCase(),kind] as const)));
 export function kindForType(type:string|null|undefined):ReviewKind|null{
  return type?.trim()?known.get(canonicalItemType(type).toLowerCase())??null:null;
+}
+/** Stored labels and legacy aliases, for predicates that cannot run the JS normalizer. */
+export function reviewTypeNames(kind:ReviewKind):readonly string[]{
+ return [...new Set([...types[kind],...itemTypeAliasNames.filter(name=>kindForType(name)===kind)].map(name=>name.toLowerCase()))];
 }
 export function typesForKind(categories:readonly string[],kind:ReviewKind):string[]{
  return categories.filter(type=>{const knownKind=kindForType(type);return knownKind===null||knownKind===kind;});

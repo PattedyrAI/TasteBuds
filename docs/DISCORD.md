@@ -1,6 +1,6 @@
 # Discord review channels
 
-TasteBuds stores a separate encrypted connection for energy-drink reviews and food reviews. Each connection belongs to one TasteBuds group and has an explicit list of that group's categories. A category can have only one enabled destination. New and unassigned categories stay unpublished until a group manager assigns them.
+TasteBuds stores separate encrypted connections for energy-drink, food and other reviews. Each connection belongs to one TasteBuds group. Energy-drink reviews match selected category IDs; Food matches the broad Food kind, with selected categories as a legacy fallback. Other reviews go to the fallback channel only when no enabled specific connection matches, including new and unassigned categories. Each new review has one destination.
 
 ## Intended setup
 
@@ -10,6 +10,7 @@ Verified in Safari on 2026-09-24:
 | --- | --- | --- |
 | Onlyfans Subscribers (`984524869498728478`) | `#energy-drink-reviews` | `1208438486940524554` |
 | Onlyfans Subscribers (`984524869498728478`) | `#food` | `1282374906683592897` |
+| Onlyfans Subscribers (`984524869498728478`) | `#reviews` | `1563107839977984140` |
 
 Both channels have a webhook named **TasteBuds**, created on 2026-09-24. Their server and channel IDs were verified through Discord's webhook API. Production connections were activated on the same day: one Energy drinks category and 45 food categories in Onlyfans Subscribers.
 
@@ -21,13 +22,33 @@ At the user's request, the three webhook URLs are stored in a local Markdown fil
 2. Sign into TasteBuds as the group's owner or platform administrator. Open **Group settings → Bring the conversation to Discord**.
 3. If an existing **All reviews** connection appears, disable it first; it cannot overlap the two specific destinations.
 4. Under **Energy-drink reviews**, select the group's energy-drink category, paste that channel's webhook URL, enable sharing and save.
-5. Under **Food reviews**, select all food categories, including snacks, desserts and restaurant dishes where appropriate. Paste the `#food` webhook URL, enable sharing and save. Do not include unrelated drinks, nicotine or other non-food categories.
-6. When adding a new category, explicitly assign it to its intended connection. Labels on the connections do not automatically classify categories.
+5. Under **Food reviews**, paste the `#food` webhook URL, enable sharing and save. Reviews marked Food are included automatically. Legacy food categories can also be selected; do not include unrelated drinks, nicotine or other non-food categories.
+6. Under **Other reviews**, paste the `#reviews` webhook URL, enable sharing and save. No category selection is needed. Energy-drink and food destinations keep priority when enabled; everything else uses #reviews. Disabling a specific connection allows future reviews to use the fallback. Existing reviews are never replayed or redirected.
 7. Verify one authorized new review in each category in its actual Discord channel. Check score, author, note, item link and absence from the other channel. Existing reviews are never replayed.
 
 Paste webhook URLs only into the password fields in TasteBuds; never put them in chat, Git, shell arguments or logs. Read APIs return only route, enabled state and category IDs. The server requires the existing `DISCORD_ENCRYPTION_KEY`; preserve that key, because replacing it makes existing connections unreadable.
 
 ## Delivery and release
+
+`011_other_review_route.sql` adds the `other` route without modifying existing connections or queued destinations. Apply it before running the new build. Enable Other reviews only after the new code is running. If an old queued fallback review becomes eligible for a specific channel, its fallback delivery is cancelled rather than redirected. Saving a connection and sending queued work both recheck eligibility. The #reviews channel and its TasteBuds webhook were created on 2026-10-23 and are activated as recorded below.
+
+The user selected a two-channel setup on 2026-10-23: keep Food enabled for #food, disable the energy-drink connection, and enable Other for #reviews. This sends future energy-drink and all remaining unmatched reviews to #reviews. The webhook URL is in a private, ignored local file and is not committed.
+
+Verification on 2026-10-23: TypeScript, production build and 385 unit tests passed (60 skipped). All 23 focused Discord integration tests passed against a fresh disposable PostgreSQL 17 database, including migration 011, exact fallback delivery, untyped reviews, cancellation after routing changes, disabled destinations and overlap rejection. Discord HTTP was intercepted; no real review was posted.
+
+### Production activation — 2026-10-23
+
+Source `f66836cc35d566046caec2cd319a1a6d6ce2a8d6` preserves the live rereview and recent-rating embed changes from `8f384ec636d00a3c7952ad76bac2acfe08d01b40`. It reached Railway `SUCCESS` as deployment `8d1a6a6e-533d-4789-895a-02e1f764fa81`, uploaded from an inspected allowlist of 203 files (2,782,817 bytes). Only the APP_RELEASE service variable changed; existing server credentials were preserved.
+
+TypeScript, production build, 396 unit tests (60 skipped), and 108 database integration tests (9 skipped) passed. The Docker image built successfully and ran as `node`; all nine local container smoke checks passed. All nine public production checks passed against the exact release marker at `2026-10-23T10:03:40.864Z`.
+
+The connection/outbox tables were backed up before migration 011. Before/after fingerprints matched for users, groups, items, ratings, revisions, comments and photo metadata/byte totals. Activation used the deployed source's connection service: enable Other first, then disable Energy drinks, retaining Food. Both webhook destinations were independently read back from Discord. The 392 items in Onlyfans Subscribers each matched exactly one active route. No historical reviews were replayed or synthetic review posted; actual receipt of a subsequent user-created review remains separate evidence. Private operational receipts and the readable connection backup are under the devbox's `.private/tastebuds-reviews-20261023` directory.
+
+### Cocktails option — 2026-10-23
+
+Source `8ba73ec36e4bb4b77f804d61ed71e8c078df0703` makes the existing Cocktails category directly visible among the Drink review choices, even when it falls outside the six most-used categories. No category, review or routing records were changed. A read-only check using the deployed route predicate confirmed that a Drink/Cocktails review selects only Other (#reviews).
+
+Typecheck, production build and 396 unit tests passed (60 skipped). The actual review form with synthetic data showed Cocktails directly, selected it successfully and had no horizontal overflow at 390px. Railway deployment `04b6d8f5-1835-4e40-9e47-c676ef4931c2` reached `SUCCESS`; all nine public checks passed against the exact source marker at `2026-10-23T10:13:09.335Z`. Upload scope was 203 allowlisted files, 2,783,041 bytes. The temporary inspection SSH key was revoked.
 
 `009_discord_category_routes.sql` preserves current connections and pending entries as the `all` route. It changes the connection primary key to `(group_id, route)`. Apply this migration as a coordinated release: the old connection-saving code uses `ON CONFLICT(group_id)` and is incompatible with the new key. Stop the old web/outbox worker for the migration and start the reviewed build before configuring multiple destinations. Do not roll back to the old application while multiple routes exist.
 
@@ -64,6 +85,10 @@ The user explicitly authorized posting only the missed **Fully Charged Lemon Yuz
 This one-off recovery used the deployed formatter and a manually claimed exact outbox row, excluded from automatic retries even if the sender crashed. It does not itself prove a subsequent new review has traversed the production poller. Food routing is activated and covered by integration tests; no real food review was posted as part of this release. Discord returns an attachment used inside an embed under `embeds[].image`; its top-level `attachments` array may be empty. Verify the embedded image before treating that empty array as a missing photo.
 
 ## Embed layout (September 30, 2026)
+
+### Reviewer attribution — 2026-10-23
+
+New announcements put the reviewer beside the score: `9.9 / 10 — @Pat`. The worker resolves the Discord ID from the rating owner's current canonical user record immediately before delivery. Missing or invalid IDs fall back to a bounded, escaped display name. The sender remains TasteBuds, and `allowed_mentions: {parse: []}` prevents notification pings. Existing messages are not rewritten. No database migration or routing change is required.
 
 Posts are titled with brand, model and variant, since items store the model without its brand. The reviewer and category share the author line, the note is a quote, and the score has a ten-square bar. The sidebar colour follows the score (green from 8, amber from 5, red below). The footer names the group, and the Discord timestamp comes from `discord_outbox.created_at`. Outbox payloads now carry `variant`; rows queued earlier show none.
 

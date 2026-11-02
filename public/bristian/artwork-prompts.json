@@ -1,0 +1,16 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "files": ["rx7-frames.png"],
+      "prompt": "Use case: stylized-concept. Asset type: game sprite strip for a website car drift animation. Create a purple Mazda RX-7 FD (1990s rounded coupe, pop-up headlights closed, tasteful rear wing, silver wheels) as EIGHT evenly spaced pixel-art turntable views in ONE HORIZONTAL ROW, transparent background. Match the attached reference strip's chunky low-resolution 16-bit pixel-art style and layout exactly, but replace the orange McLaren with the purple RX-7. All eight equal-width cells have same center, same scale and bottom ground line. View directions in order: nose right (side), nose bottom-right (front three-quarter), nose down (front), nose bottom-left, nose left (side), nose top-left (rear three-quarter), nose up (rear), nose top-right. Slight elevated camera in all views. Each full car fits comfortably within its cell; no overlap, no cropping. Rich violet paint with lavender highlights, black glass. No words, grid, captions, smoke or background. Wide strip aspect ratio.",
+      "reference": "../matthew/p1-frames.png",
+      "packaging": "Eight views cropped, resized with nearest-neighbor sampling, centered in 110x50 cells, bottom-aligned in an 880x50 transparent strip."
+    },
+    {
+      "files": ["battery-sour-apple.png", "battery-peachberry.png"],
+      "prompt": "Use case: stylized-concept. Asset type: decorative pixel-art energy drink cans for website background. Two separate upright full-height cans, side by side with ample transparent space between them, both same size. Left is Battery Sour Apple, green and black can with silver top, bold vertical BATTERY branding and smaller SOUR APPLE lettering; right is Battery Peachberry, peach/pink and black can with silver top, bold vertical BATTERY branding and smaller PEACHBERRY lettering. Recognizable Battery energy drink packaging with circular lightning icon. Authentic chunky 16-bit pixel art, hard square pixels, limited palette, no smooth gradients or antialiasing. Each can about 32 pixels wide and 88 pixels tall in apparent detail, enlarged with nearest-neighbor appearance. Straight front-on upright cans, no rotation, no shadows outside the cans, isolated on fully transparent background. No additional objects or text outside packaging.",
+      "packaging": "Cans separated, transparent margins trimmed, resized with nearest-neighbor sampling to 32x88 each."
+    }
+  ]
+}
