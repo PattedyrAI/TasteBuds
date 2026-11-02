@@ -1,4 +1,4 @@
-import {afterAll,beforeAll,describe,expect,it} from 'vitest';
+import {afterAll,beforeAll,describe,expect,it,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {migrate} from '../scripts/migrate';
@@ -26,7 +26,8 @@ describe.skipIf(!url)('personal category rating import',()=>{
  afterAll(async()=>{await getPool().end();await admin.query(`DROP DATABASE "${database}"`);await admin.end();});
  const input=()=>({sourceGroupId:source,sourceCategoryId:sourceCategory,destinationCategoryId:targetCategory});
  it('copies only own category ratings, with independently authorized photos and original data',async()=>{
-  expect(await importRatings(actor,destination,input())).toEqual({imported:1,skipped:0});
+  const results=await Promise.all([importRatings(actor,destination,input()),importRatings(actor,destination,input())]);
+  expect(results.reduce((n,r)=>n+r.imported,0)).toBe(1);expect(results.reduce((n,r)=>n+r.skipped,0)).toBe(1);
   const copied=(await getPool().query('SELECT * FROM everrate.ratings WHERE group_id=$1',[destination])).rows;
   expect(copied).toHaveLength(1);const row=copied[0];expect(row.user_id).toBe(actor);expect(Number(row.score)).toBe(8.2);expect(row.note).toBe('Original note');expect(row.tasted_at.toISOString()).toBe('2025-01-02T12:00:00.000Z');expect(row.photo_id).not.toBe(photos[0]);
   const detail=await getItem(actor,row.item_id);expect(detail.type).toBe('Beverages');expect(detail.ratings[0].photoIds).toHaveLength(2);
@@ -51,7 +52,20 @@ describe.skipIf(!url)('personal category rating import',()=>{
   const copied=(await getPool().query('SELECT custom_fields,category_fields FROM everrate.ratings WHERE user_id=$1 AND idempotency_key=$2',[actor,`group-import:${destination}:${added.id}`])).rows[0];
   expect(copied.custom_fields).toEqual({aroma:'Citrus'});expect(copied.category_fields[0].id).toBe('aroma');
  });
+ it('rejects a conflicting destination restaurant location without importing anything',async()=>{
+  const original=(await getPool().query('SELECT item_id,photo_id FROM everrate.ratings WHERE id=$1',[ratingId])).rows[0];
+  await createRating(actor,{groupId:source,itemId:original.item_id,score:8,photoId:original.photo_id});
+  const target=(await getPool().query('SELECT item_id FROM everrate.ratings WHERE group_id=$1 ORDER BY created_at LIMIT 1',[destination])).rows[0].item_id;
+  for(const [g,item,place] of [[source,original.item_id,'source-place'],[destination,target,'different-place']])await getPool().query('INSERT INTO everrate.restaurant_places(group_id,item_id,place_id,created_by) VALUES($1,$2,$3,$4)',[g,item,place,actor]);
+  await expect(importRatings(actor,destination,input())).rejects.toMatchObject({status:409});
+  expect((await getPool().query('SELECT 1 FROM everrate.ratings WHERE group_id=$1',[destination])).rowCount).toBe(2);
+ });
+ it('requires actual membership even for platform administrators',async()=>{
+  vi.stubEnv('PLATFORM_ADMIN_USER_ID',outsider);
+  try{await expect(importRatings(outsider,destination,input())).rejects.toMatchObject({status:403});}finally{vi.unstubAllEnvs();}
+ });
  it('rejects non-members, cross-group category IDs, same-group copies and caller-selected authors',async()=>{
+  await joinGroup(outsider,{code:(await getGroup(actor,source)).inviteCode!});
   await expect(importRatings(outsider,destination,input())).rejects.toMatchObject({status:404});
   await expect(importRatings(actor,destination,{...input(),destinationCategoryId:otherCategory})).rejects.toMatchObject({status:404});
   await expect(importRatings(actor,source,input())).rejects.toMatchObject({status:400});

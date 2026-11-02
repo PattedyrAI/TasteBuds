@@ -22,7 +22,7 @@ export function ImportRatings({group,groups,changed}:{group:GroupDetail;groups:G
     <label>From group<select required disabled={busy} value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose a group</option>{groups.filter(g=>g.id!==group.id).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
     <label>From category<select required disabled={busy||loading||!source} value={category} onChange={e=>setCategory(e.target.value)}><option value="">{loading?'Loading categories…':'Choose a category'}</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
     <label>Into category in {group.name}<select required disabled={busy} value={destination} onChange={e=>setDestination(e.target.value)}><option value="">Choose a category</option>{group.categories?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-    <p className="hint">Includes scores, notes, tasting dates and photos. Only your active ratings with photos are copied. Comments and Discord announcements are excluded.</p>
+    <p className="hint">Includes scores, notes, tasting dates and photos. Original category fields are kept. Only your active ratings with photos are copied. Comments and Discord announcements are excluded.</p>
     <button className="button secondary" disabled={busy||loading||!source||!category||!destination}>{busy?'Importing…':'Import all my ratings in this category'}</button>
     {error&&<p className="error" role="alert">{error}</p>}{success&&<p className="success" role="status">{success}</p>}
   </form>;

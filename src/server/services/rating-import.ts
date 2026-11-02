@@ -34,6 +34,8 @@ export async function importRatings(userId:string,groupId:string,input:unknown){
       let itemId=(await db.query('SELECT id FROM everrate.items WHERE group_id=$1 AND type_id=$2 AND identity_key=$3 ORDER BY created_at,id LIMIT 1',[groupId,value.destinationCategoryId,row.identity_key])).rows[0]?.id;
       if(!itemId)itemId=(await db.query(`INSERT INTO everrate.items(group_id,name,brand_id,variant,type_id,broad_category,identity_key,created_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,[groupId,row.name,brandId,row.variant,value.destinationCategoryId,row.broad_category,row.identity_key,userId])).rows[0].id;
+      const destinationPlace=(await db.query('SELECT place_id FROM everrate.restaurant_places WHERE group_id=$1 AND item_id=$2',[groupId,itemId])).rows[0]?.place_id;
+      if(row.place_id&&destinationPlace&&row.place_id!==destinationPlace)throw new ServiceError(409,'A matching destination item has a different location. Choose another category.');
       const photos:string[]=[];
       for(const photoId of row.photo_ids){
         const photo=await db.query(`INSERT INTO everrate.photos(group_id,owner_id,data,sha256,mime_type,width,height)
