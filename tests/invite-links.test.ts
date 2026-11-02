@@ -63,7 +63,7 @@ describe('invite links',()=>{
   });
   it('drops an abandoned invite when Discord is cancelled or a normal sign-in starts',async()=>{
     mocks.jar.set('tastebuds_invite',{value:code});
-    expect((await GET(new Request(origin+'/auth/callback?error=access_denied'))).headers.get('location')).toBe(`${origin}/?error=login`);
+    expect((await GET(new Request(origin+'/auth/callback?error=access_denied'))).headers.get('location')).toBe(`${origin}/join/${code}?error=auth`);
     expect(pending()?.options).toMatchObject({path:'/auth',maxAge:0});
     mocks.jar.set('tastebuds_invite',{value:code});
     await login(new Request(origin+'/auth/login'));
@@ -71,6 +71,25 @@ describe('invite links',()=>{
     mocks.exchange.mockResolvedValue({error:null});mocks.clientUser.mockResolvedValue({data:{user:authUser},error:null});
     mocks.jar.delete('tastebuds_invite');
     expect((await GET(new Request(origin+'/auth/callback?code=oauth-code'))).headers.get('location')).toBe(`${origin}/app`);
+    expect(mocks.joinGroup).not.toHaveBeenCalled();
+  });
+  it('returns a failed Discord signup to its invite with email recovery instructions',async()=>{
+    mocks.jar.set('tastebuds_invite',{value:code});
+    const response=await GET(new Request(origin+'/auth/callback?error=server_error&error_description=Error+getting+user+email+from+external+provider'));
+    expect(response.headers.get('location')).toBe(`${origin}/join/${code}?error=email`);
+    expect(mocks.exchange).not.toHaveBeenCalled();expect(mocks.joinGroup).not.toHaveBeenCalled();
+    expect(pending()?.options).toMatchObject({path:'/auth',maxAge:0});
+  });
+  it('uses a fixed error marker rather than reflecting provider error text',async()=>{
+    const response=await GET(new Request(origin+'/auth/callback?error=server_error&error_description=Error+getting+user+email+from+external+provider'));
+    expect(response.headers.get('location')).toBe(`${origin}/?error=email`);
+    mocks.jar.set('tastebuds_invite',{value:code});
+    const denied=await GET(new Request(origin+'/auth/callback?error=access_denied&error_description=https://evil.example'));
+    expect(denied.headers.get('location')).toBe(`${origin}/join/${code}?error=auth`);
+  });
+  it('keeps the invite retry destination after a failed code exchange',async()=>{
+    mocks.jar.set('tastebuds_invite',{value:code});mocks.exchange.mockResolvedValue({error:new Error('expired code')});
+    expect((await GET(new Request(origin+'/auth/callback?code=expired'))).headers.get('location')).toBe(`${origin}/join/${code}?error=auth`);
     expect(mocks.joinGroup).not.toHaveBeenCalled();
   });
   it('checks the origin before reading the body and refuses oversized bodies',async()=>{

@@ -315,3 +315,25 @@ Separate Google-nøkler, eget JavaScript-vektorkart og `GOOGLE_PLACES_DAILY_LIMI
 Verifisering før publisering: 209 enhetstester bestått, 78 miljøavhengige hoppet over; 91 databaseintegrasjonstester bestått uten hopp; typesjekk og produksjonsbygg bestått. Kategori-/kartkoden og migreringsskriptet fikk uavhengig godkjenning. Ekte Google-søk, serveroppslag og kartmarkør var verifisert lokalt; ingen virkelig gruppe fikk en syntetisk testvurdering under produksjonskontrollen. Innlogget app lastet etter utrullingen, men lagring og gjenåpning av en hel Google-tilknyttet vurdering er ikke verifisert i produksjon.
 
 GitHub-push ble avvist med 403 for aktiv konto Pattedyret. Kildecommiten finnes lokalt og er publisert direkte til Railway. Ved rollback kan forrige apprelease gjenopprettes uten å fjerne de additive databasefeltene; bevar nye vurderingsdata og ikke rull tilbake migreringen med sletting.
+
+## Discord signup without a provider email
+
+On November 2, 2026, the production GoTrue `v2.189.0` callback failed with
+`Error getting user email from external provider`. The Discord authorization
+already requested `email identify`; adding scopes does not repair a provider
+response with no email. TasteBuds identifies accounts using the server-validated
+Discord identity ID, rather than email.
+
+The proposed production repair is to set
+`GOTRUE_EXTERNAL_DISCORD_EMAIL_OPTIONAL=true` on the existing **GoTrue Auth
+service**, then redeploy that service. This is an explicit production approval
+step; the application PR does not apply it. Keep provider credentials, callback
+URLs and identity checks unchanged. Verify fresh signup without a Discord email,
+repeat login to the same account, and joining the intended group through an
+invite. A session without a valid Discord identity must remain denied.
+
+Rollback removes the variable and redeploys the same Auth image. Accounts created
+while the setting was enabled remain; rollback must not delete those accounts.
+Until the configuration is approved, a user can add an email to their Discord
+account and retry the invite. App callback errors now preserve the invite page
+and show this recovery option, without reflecting raw provider error text.
