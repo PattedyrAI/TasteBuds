@@ -515,3 +515,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .same-product{display:grid;gap:10px;width:100%}
 .same-product-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media (max-width:420px){.same-product-actions{grid-template-columns:1fr}}
+.result-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.result-row .result-count{margin:0}
+.surprise-button{gap:7px;padding:8px 14px;font-size:var(--fs-sm)}
+.surprise-pick{display:flex;gap:14px;align-items:center}
+.surprise-pick .item-photo,.surprise-pick .photo-placeholder{width:104px;height:132px;border-radius:var(--r-md);object-fit:cover;flex-shrink:0}
+.surprise-pick>div{display:grid;gap:4px;min-width:0}
+.surprise-pick strong{font-size:var(--fs-lg,18px);overflow-wrap:anywhere}
+.surprise-score{display:flex;align-items:center;gap:8px;margin-top:6px}
+.surprise-score small{color:var(--muted)}
+.surprise-modal .hint{margin-top:14px}
