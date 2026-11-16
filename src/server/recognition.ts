@@ -3,6 +3,7 @@ import {validId} from './services/common';
 import {getPhoto} from './photos';
 import {findItemMatches} from './item-matches';
 import {HttpError} from './auth';
+import {generateJson} from './gemini';
 import {normalizeSuggestion,recognitionPrompt,recognitionJsonSchema} from './recognition-format';
 import type {RecognitionResult,RecognitionSuggestion} from '@/lib/contracts';
 const PROMPT_VERSION='everrate-2-photo-identity';
@@ -30,19 +31,10 @@ function recognitionFailureMessage(failure:string){
 }
 
 export async function detectImage(data:Buffer,mimeType:string){
-  if(!process.env.GEMINI_API_KEY)throw new Error('not_configured');
-  const model=process.env.GEMINI_MODEL||'gemini-3.1-flash-lite';
-  if(!/^gemini-[a-z0-9.-]+$/.test(model))throw new Error('invalid_model');
-  const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
-    method:'POST',headers:{'content-type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},signal:AbortSignal.timeout(30_000),
-    body:JSON.stringify({contents:[{role:'user',parts:[{text:recognitionPrompt},{inlineData:{mimeType,data:data.toString('base64')}}]}],generationConfig:{responseMimeType:'application/json',responseJsonSchema:recognitionJsonSchema,temperature:0,maxOutputTokens:1000,thinkingConfig:{thinkingLevel:'minimal'}}})
-  });
-  if(!response.ok)throw new Error(`provider_${response.status}`);
-  const payload=await response.json();const text=payload.candidates?.[0]?.content?.parts?.filter((p:{text?:string;thought?:boolean})=>p.text&&!p.thought).map((p:{text:string})=>p.text).join('');
-  if(!text)throw new Error('unrecognised');
-  return {suggestion:normalizeSuggestion(JSON.parse(text)),inputTokens:payload.usageMetadata?.promptTokenCount??null,outputTokens:(payload.usageMetadata?.candidatesTokenCount??0)+(payload.usageMetadata?.thoughtsTokenCount??0),model};
+  const result=await generateJson([{text:recognitionPrompt},{inlineData:{mimeType,data:data.toString('base64')}}],recognitionJsonSchema,{maxOutputTokens:1000});
+  return {suggestion:normalizeSuggestion(result.value),inputTokens:result.inputTokens,outputTokens:result.outputTokens,model:result.model};
 }
-async function requireAiEnabled(userId:string,db:Db=getPool()){
+export async function requireAiEnabled(userId:string,db:Db=getPool()){
   validId(userId);const account=await db.query('SELECT ai_enabled FROM everrate.users WHERE id=$1',[userId]);
   if(account.rows[0]?.ai_enabled!==true)throw new HttpError('AI assistance is disabled. Enable it in your preferences to use photo recognition.',403);
 }

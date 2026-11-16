@@ -4,6 +4,7 @@ import {Camera,Upload,LoaderCircle,Check,X,Expand,Sparkles,Pencil,Plus,ImagePlus
 import type {Category,CustomFields,Item,Rating,RecognitionResult,UploadedPhoto} from '@/lib/contracts';
 import {Modal,Photo,request} from './ui';
 import {reviewPhotoIds} from './review-photos';
+import {requestToSend,type SentRequest} from './save-request';
 import {PhotoViewer} from './photo-viewer';
 import {RatingInput} from './rating-input';
 import {CategoryPicker} from './category-picker';
@@ -25,6 +26,10 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   const [name,setName]=useState(item?.name||''),[brand,setBrand]=useState(item?.brand||''),[variant,setVariant]=useState(item?.variant||''),[type,setType]=useState(item?.type||'');
   const [broad,setBroad]=useState(item?.broadCategory||''),[itemId,setItemId]=useState(item?.id),[photoIds,setPhotoIds]=useState<string[]>(reviewPhotoIds(editing||rereview||{})),[score,setScore]=useState<number|''>(editing?.score||rereview?.score||7),[note,setNote]=useState(editing?.note||'');
   const [tastedAt,setTastedAt]=useState(ratingDateValue(editing?.tastedAt||new Date())),[busy,setBusy]=useState(''),[error,setError]=useState(''),[hint,setHint]=useState(''),[matches,setMatches]=useState<Item[]>([]);
+  // A brand-new item may already exist under another name; the rater confirms before it is linked.
+  // Once a save was sent, a retry of the unchanged form resends that exact request (same timestamp, same linked item)
+  // under its idempotency key without a new check; a changed form is checked again like a first save.
+  const [sameAs,setSameAs]=useState<Item|null>(null),confirmedNew=useRef(false),sentCreate=useRef<SentRequest|null>(null);
   const [templates,setTemplates]=useState(categoryTemplates),[creatingCategory,setCreatingCategory]=useState(false);
   const [extraValues,setExtraValues]=useState<CustomFields>(editing?.customFields||rereview?.customFields||{}),[linkedItem,setLinkedItem]=useState(item);
   // A rereview stays tied to one item; switching sugar version turns it into a first rating of the other item.
@@ -47,6 +52,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     let active=true;const timer=setTimeout(()=>{const query=new URLSearchParams({name:name.trim(),brand,variant});void request<Item[]>(`/api/groups/${groupId}/matches?${query}`).then(rows=>{if(active)setMatches(rows.filter(row=>{const kind=broadReviewKind(row.broadCategory)||kindForType(row.type);return !broadReviewKind(broad)||!kind||kind===broad;}));}).catch(()=>{});},300);
     return()=>{active=false;clearTimeout(timer);};
   },[groupId,name,brand,variant,itemId,editing,energy,broad]);
+  useEffect(()=>{setSameAs(null);confirmedNew.current=false;},[name,brand,variant,type,itemId]);
   // Attaching a photo never starts recognition. AI needs both an enabled preference and a click.
   useEffect(()=>{if(!aiEnabled)uploadController.current?.abort();},[aiEnabled]);
   function selectPhotos(e:React.ChangeEvent<HTMLInputElement>){
@@ -85,18 +91,41 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     }catch(e){if(operation.signal.aborted)return;setError(e instanceof Error?e.message:'Could not suggest details. Your photo is attached; you can fill them in yourself.');}
     finally{if(uploadController.current===operation)setBusy('');}
   }
-  async function save(e:React.FormEvent){e.preventDefault();if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}setBusy('Saving your rating…');setError('');try{
+  function save(e:React.FormEvent){e.preventDefault();void submit();}
+  async function post(body:Record<string,unknown>){
+    setBusy('Saving your rating…');setError('');
+    try{await request('/api/ratings','POST',body);if(mounted.current)saved();}
+    catch(e){if(!mounted.current)return;setDetailsOpen(true);setError(e instanceof Error?e.message:'Could not save.');setBusy('');}
+  }
+  async function submit(linkTo?:Item){
+    // A retry of an unchanged form resends the request already sent, before anything is rebuilt or re-validated
+    // (a confirmed item's place, today's timestamp and the rereview source all live only in that request).
+    if(!editing&&!linkTo&&sentCreate.current&&sentCreate.current.form===retryKey()){await post(sentCreate.current.body);return;}
+    if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}
+    const newVariant=energy?(isSugarfree(variant)?SUGARFREE_VARIANT:null):variant||null;
+    if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current){
+      setBusy('Checking whether your group already has this…');setError('');
+      // Never blocks saving: a slow or unavailable check gives up after a few seconds and saves as new.
+      const check=new AbortController(),deadline=setTimeout(()=>check.abort(),10_000);
+      try{const r=await request<{match:Item|null}>(`/api/groups/${groupId}/same-product`,'POST',{name,brand:brand.trim(),variant:newVariant,type:type||null},check.signal);if(!mounted.current)return;if(r.match){setSameAs(r.match);setBusy('');return;}}catch{if(!mounted.current)return;}
+      finally{clearTimeout(deadline);}
+    }
+    setBusy('Saving your rating…');setError('');try{
     const submitted=Object.fromEntries(Object.entries(extraValues).filter(([id])=>fields.some(field=>field.id===id)));
     const locationField=fields.find(field=>field.type==='location');
-    if(!editing&&locationField&&linkedItem?.placeId)submitted[locationField.id]=linkedItem.placeId;
+    const placeId=linkTo?linkTo.placeId:linkedItem?.placeId;
+    if(!editing&&locationField&&placeId)submitted[locationField.id]=placeId;
     const customFields=validateCustomFields(fields,submitted);
     const timestamp=ratingTimestamp(tastedAt,editing?.tastedAt);
     if(editing)await request(`/api/ratings/${editing.id}`,'PATCH',{score,note,tastedAt:timestamp,photoId,photoIds,customFields});
-    else await request('/api/ratings','POST',{groupId,itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId?(isSugarfree(variant)?SUGARFREE_VARIANT:null):variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current});
+    else {const send=requestToSend(sentCreate.current,retryKey(),()=>({groupId,itemId:linkTo?.id??itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId&&!linkTo?newVariant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current}));
+      sentCreate.current=send;await request('/api/ratings','POST',send.body);}
     if(mounted.current)saved();
   }catch(e){if(!mounted.current)return;setDetailsOpen(true);setError(e instanceof Error?e.message:'Could not save.');setBusy('');}}
   // Anything the person typed, picked or attached since opening is worth a confirmation before it is thrown away.
   const snapshot=()=>JSON.stringify({photoIds,note,score,tastedAt,extraValues,name,brand,variant,type,broad,itemId});
+  // What a sent create request depends on: the visible form plus the rereview source, which can change without a visible field.
+  const retryKey=()=>JSON.stringify([snapshot(),rereviewing?.id??null]);
   const initial=useRef<string|null>(null);if(initial.current===null)initial.current=snapshot();
   const dirty=()=>!!busy||snapshot()!==initial.current;
   const mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -131,7 +160,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   if(creatingCategory)return <CategoryTemplate groupId={groupId} close={()=>setCreatingCategory(false)} created={category=>{setTemplates(previous=>[...previous.filter(c=>c.id!==category.id),category]);changeCategory(category.name);setCreatingCategory(false);setHint('Type created. Your draft is ready to continue.');}}/>;
   const formId='rating-form';
   return <Modal className="rating-modal sheet" title={title} close={close} guard={dirty} guardMessage="Discard this rating?"
-    footer={<>{error&&<p className="error" role="alert">{error}</p>}<button form={formId} className="button primary full large" disabled={!!busy||!photoId}>{busy==='Saving your rating…'?<><LoaderCircle size={18} className="spin"/>Saving…</>:!photoId?'Add a photo to save':editing?'Save changes':'Save rating'}</button></>}>
+    footer={<>{error&&<p className="error" role="alert">{error}</p>}{sameAs?<section className="same-product" aria-labelledby="same-product-title"><div className="linked-item"><Photo id={sameAs.photoId} name={sameAs.name}/><div><strong id="same-product-title">Same as {[sameAs.brand,sameAs.name].filter(Boolean).join(' ')}{isSugarfree(sameAs.variant)?' (sugar-free)':''}?</strong><span className="muted">Already rated {sameAs.tastingCount} time{sameAs.tastingCount===1?'':'s'} in your group.</span></div></div><div className="same-product-actions"><button type="button" className="button primary" disabled={!!busy} onClick={()=>{const match=sameAs;setSameAs(null);void submit(match);}}><Check size={18}/>Yes, add my rating to it</button><button type="button" className="button secondary" disabled={!!busy} onClick={()=>{confirmedNew.current=true;setSameAs(null);void submit();}}>No, save as new</button></div></section>:<button form={formId} className="button primary full large" disabled={!!busy||!photoId}>{busy==='Saving your rating…'?<><LoaderCircle size={18} className="spin"/>Saving…</>:!photoId?'Add a photo to save':editing?'Save changes':'Save rating'}</button>}</>}>
   <form id={formId} onSubmit={save} className="rating-form">{rereviewing&&<p className="callout">Your earlier photos are ready to reuse. Your previous rating stays in your history; only your latest score counts toward the group score.</p>}
     <input ref={input} hidden type="file" multiple aria-label="Upload a photo" accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={!!busy||photoIds.length>=5} onChange={selectPhotos}/>
     <input ref={cameraInput} hidden type="file" aria-label="Take a photo" accept="image/*" capture="environment" disabled={!!busy||photoIds.length>=5} onChange={selectPhotos}/>
