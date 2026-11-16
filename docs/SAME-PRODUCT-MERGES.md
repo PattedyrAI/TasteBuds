@@ -35,3 +35,17 @@ TEST_DATABASE_URL=postgresql://postgres:...@127.0.0.1:<port>/everrate_test npx v
 ```
 
 The integration suite creates and drops its own database. It covers the sugar-free separation in what the model is sent, the exact-match shortcut, failures and low confidence, the AI preference and membership, end-to-end backfill through the applicator (dry run, apply, idempotent rerun), and dropping a cluster that changed after review.
+
+## Judging with another model (e.g. Codex signed in with ChatGPT)
+
+When the Gemini key cannot be used, the judging can happen outside the planner:
+
+```sh
+# 1. Export the exact prompt, response schema and per-block payloads (product names only; no ids, people or notes)
+SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --export-blocks
+# 2. Judge every block with the given prompt and write {version:1, judge:"<provider/model>", blocks:[{blockId, groups}]}
+# 3. Analyze with those answers instead of Gemini (no paid Gemini calls)
+SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --analyze --judgments=<file>
+```
+
+Answers pass the same validation as a live model's: indexes must stay inside their block, groups may not overlap, and blocks never mix brands, types or the Sugarfree tag. The answers must cover exactly the current catalog's blocks. A block ID hashes the group and each item's id, name, brand, variant and type. So a rename, re-brand or variant change after export, a vanished block, a missing answer or a leftover answer all stop the run; export again. The review page and `--plan` step are unchanged.
