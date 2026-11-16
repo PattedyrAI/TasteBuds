@@ -5,6 +5,8 @@ import {Avatar,Photo,Score} from './ui';
 import {isMatthew} from '../domain/matthew';
 import {groupFavourites,rankCategories} from './catalog-presentation';
 import {sections,sectionFor,type Section} from '../domain/category-taxonomy';
+import {SurpriseMe} from './surprise-me';
+import {isEnergyDrinkCategory} from '../domain/energy-drinks';
 
 /** Home answers three questions in order: what did you try, what is the group into, and where to look next. */
 export function CollectionHome({items,feed,name,browse,open,add,showFeed,showInsights,showSaved}:{items:Item[];feed:FeedEntry[];name:string;browse:(type:string|null,section?:Section)=>void;open:(id:string)=>void;add:()=>void;showFeed:()=>void;showInsights:()=>void;showSaved:()=>void}){
@@ -12,6 +14,7 @@ export function CollectionHome({items,feed,name,browse,open,add,showFeed,showIns
   const bySection=sections.map(section=>({section,categories:rankCategories(items.filter(i=>sectionFor(i.type,i.broadCategory)===section))})).filter(s=>s.categories.length);
   const unsorted=items.filter(i=>!sectionFor(i.type,i.broadCategory)).length;
   return <div className="home">
+    <SurpriseMe banner items={items.filter(i=>isEnergyDrinkCategory(i.type))} open={open}/>
     <button type="button" className="rate-prompt" onClick={add}>
       <span className="rate-prompt-icon" aria-hidden="true"><Camera size={26}/></span>
       <span className="rate-prompt-copy"><strong>What did you try{name?`, ${name}`:''}?</strong><span>Snap it, score it, share it with the group.</span></span>

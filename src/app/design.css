@@ -525,3 +525,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .surprise-score{display:flex;align-items:center;gap:8px;margin-top:6px}
 .surprise-score small{color:var(--muted)}
 .surprise-modal .hint{margin-top:14px}
+/* Home banner: a random untried energy drink the group likes (Surprise me, scoped to energy drinks). */
+.surprise-banner{display:flex;align-items:center;gap:16px;width:100%;text-align:left;border:0;border-radius:var(--r-lg);padding:18px 20px;margin-bottom:14px;background:linear-gradient(120deg,#0e3b43,#1f5f4a 55%,#3f7a1e);color:#fff;box-shadow:var(--shadow-1);cursor:pointer}
+.surprise-banner-icon{width:52px;height:52px;border-radius:16px;background:#c8f04a;color:#16301a;display:grid;place-items:center;flex-shrink:0}
+.surprise-banner-copy{display:grid;gap:2px;flex:1;min-width:0}
+.surprise-banner-copy strong{font-size:var(--fs-lg);letter-spacing:-.3px}
+.surprise-banner-copy span{font-size:var(--fs-sm);color:#dcefe2}
+.surprise-banner-cta{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;border-radius:12px;padding:10px 14px;background:#c8f04a;color:#16301a;font-weight:700;font-size:var(--fs-sm);transition:transform .2s}
+.surprise-banner:hover .surprise-banner-cta{transform:translateX(3px)}
+@media (max-width:520px){.surprise-banner{flex-wrap:wrap}.surprise-banner-cta{width:100%;justify-content:center}}
