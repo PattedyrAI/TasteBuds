@@ -521,3 +521,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .surprise-pick strong{font-size:var(--fs-lg,18px);overflow-wrap:anywhere}
 .surprise-score{display:flex;align-items:center;gap:8px;margin-top:6px}
 .surprise-score small{color:var(--muted)}
+.surprise-modal .hint{margin-top:14px}
