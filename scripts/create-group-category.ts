@@ -14,7 +14,7 @@ import {categoryFieldsSchema} from '../src/domain/category-template';
 import {nameSchema} from '../src/domain/validation';
 
 export const categorySpecSchema = z.object({
-  groupId: z.string().uuid(), name: nameSchema, fields: categoryFieldsSchema,
+  groupId: z.string().uuid(), name: nameSchema, fields: categoryFieldsSchema.default([]), // same default as createCategory
   note: z.string().trim().min(10).max(500),
 }).strict();
 export type CategorySpec = z.infer<typeof categorySpecSchema>;

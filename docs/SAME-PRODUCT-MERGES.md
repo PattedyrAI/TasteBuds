@@ -48,4 +48,4 @@ SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --expo
 SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --analyze --judgments=<file>
 ```
 
-Answers pass the same validation as a live model's: indexes must stay inside their block, groups may not overlap, and blocks never mix brands, types or the Sugarfree tag. Every exported block needs an answer. A block ID is the hash of its item IDs, so a catalog that changed after export stops the run; export again. The review page and `--plan` step are unchanged.
+Answers pass the same validation as a live model's: indexes must stay inside their block, groups may not overlap, and blocks never mix brands, types or the Sugarfree tag. The answers must cover exactly the current catalog's blocks. A block ID hashes the group and each item's id, name, brand, variant and type. So a rename, re-brand or variant change after export, a vanished block, a missing answer or a leftover answer all stop the run; export again. The review page and `--plan` step are unchanged.

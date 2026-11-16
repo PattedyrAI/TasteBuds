@@ -60,6 +60,11 @@ describe.skipIf(!url)('operator tools', () => {
     expect(await types()).toHaveLength(1);
   });
 
+  it('defaults fields to none, like the app', async () => {
+    const result = await createGroupCategory(client, {groupId, name: 'Plain notes', note: 'Parity check for TKT-20102'});
+    expect(result).toMatchObject({status: 'validated'});
+  });
+
   it('rejects templates the app itself would reject', async () => {
     await expect(createGroupCategory(client, spec({name: 'Bars', fields: [restaurants[0], {...restaurants[0], id: 'second', label: 'Second'}]}))).rejects.toThrow(/one location field/);
     await expect(createGroupCategory(client, spec({name: 'Bars', groupId: randomUUID()}))).rejects.toThrow(/Group not found/);
@@ -80,17 +85,29 @@ describe.skipIf(!url)('operator tools', () => {
     expect(JSON.stringify(exported.blocks)).not.toContain(a); // names only, no ids
     const entries = exported.blocks[0].payload.entries.map(entry => entry.name);
     const groups = [{items: [0, 1], keep: entries.indexOf('Pistachio & Berries'), confidence: .93, reason: 'Edition label only'}];
-    const {judge, label} = judgeFromJudgments({version: 1, judge: 'openai/codex-chatgpt', blocks: [{blockId: exported.blocks[0].blockId, groups}]});
+    let current = catalog;
+    const answer = (blockIdValue = exported.blocks[0].blockId, g: unknown = groups) => ({version: 1, judge: 'openai/codex-chatgpt', blocks: [{blockId: blockIdValue, groups: g}]});
+    const {judge, label} = judgeFromJudgments(answer(), catalog);
     const review = await analyzeCatalog(catalog, judge, label);
     expect(review.model).toBe('external:openai/codex-chatgpt');
     expect(review.clusters).toHaveLength(1);
     expect(review.clusters[0].items.map(item => item.id).sort()).toEqual([a, b].sort());
-    // Out-of-range or overlapping answers are dropped exactly like a live model's.
-    const bad = judgeFromJudgments({version: 1, judge: 'x', blocks: [{blockId: exported.blocks[0].blockId, groups: [{items: [0, 9], keep: 0, confidence: 1, reason: ''}]}]});
+    // Out-of-range answers are dropped exactly like a live model's.
+    const bad = judgeFromJudgments(answer(undefined, [{items: [0, 9], keep: 0, confidence: 1, reason: ''}]), catalog);
     expect((await analyzeCatalog(catalog, bad.judge, bad.label)).clusters).toEqual([]);
-    // A block without an answer stops the run instead of silently skipping duplicates.
-    const missing = judgeFromJudgments({version: 1, judge: 'x', blocks: []});
-    await expect(analyzeCatalog(catalog, missing.judge, missing.label)).rejects.toThrow(/Missing judgment/);
-    expect(blockId([{id: b}, {id: a}])).toBe(blockId([{id: a}, {id: b}]));
+    // Missing, duplicate and left-over answers are refused.
+    expect(() => judgeFromJudgments({version: 1, judge: 'x', blocks: []}, catalog)).toThrow(/do not match/);
+    expect(() => judgeFromJudgments({version: 1, judge: 'x', blocks: [answer().blocks[0], answer().blocks[0]]}, catalog)).toThrow(/Duplicate/);
+    expect(() => judgeFromJudgments({version: 1, judge: 'x', blocks: [answer().blocks[0], answer('0123456789abcdef').blocks[0]]}, catalog)).toThrow(/do not match/);
+    // An item renamed after export invalidates the old answer instead of merging different products.
+    await getPool().query("UPDATE everrate.items SET name='Fig Apple' WHERE id=$1", [b]);
+    current = await readCatalog(client, groupId); expect(() => judgeFromJudgments(answer(), current)).toThrow(/do not match/);
+    await getPool().query("UPDATE everrate.items SET name='Winter Edition Pistachio and Berries' WHERE id=$1", [b]);
+    current = await readCatalog(client, groupId); expect(() => judgeFromJudgments(answer(), current)).not.toThrow();
+    // A block that vanished (one item no longer visible) leaves its answer over, which is refused.
+    await getPool().query('UPDATE everrate.ratings SET deleted_at=now() WHERE item_id=$1', [b]);
+    current = await readCatalog(client, groupId); expect(() => judgeFromJudgments(answer(), current)).toThrow(/do not match/);
+    await getPool().query('UPDATE everrate.ratings SET deleted_at=NULL WHERE item_id=$1', [b]);
+    expect(blockId(catalog.filter(i => [a, b].includes(i.id)).reverse())).toBe(exported.blocks[0].blockId);
   });
 });

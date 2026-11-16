@@ -52,31 +52,46 @@ export async function readCatalog(client: PoolClient, groupId?: string): Promise
      ${groupId ? 'AND i.group_id=$1' : ''} ORDER BY i.group_id,i.id`, groupId ? [groupId] : [])).rows);
 }
 
-/** Stable for an unchanged catalog: the sorted ids of the block's items. */
-export const blockId = (block: readonly {id: string}[]) => createHash('sha256').update(block.map(item => item.id).sort().join(',')).digest('hex').slice(0, 16);
+/**
+ * Binds an answer to exactly what was judged: the group and each item's full identity, in the payload's order.
+ * A rename, re-brand, re-typing or variant change after export gives a different id.
+ */
+export const blockId = (block: readonly Pick<CatalogItem, 'id' | 'groupId' | 'name' | 'brand' | 'variant' | 'type'>[]) => {
+  const items = [...block].sort((a, b) => a.id.localeCompare(b.id));
+  return createHash('sha256').update(JSON.stringify(items.map(item => [item.groupId, item.id, item.name, item.brand, item.variant, item.type]))).digest('hex').slice(0, 16);
+};
+const judgeableBlocks = (catalog: CatalogItem[]) => {
+  const groups = new Map<string, CatalogItem[]>();
+  for (const item of catalog) groups.set(item.groupId, [...(groups.get(item.groupId) ?? []), item]);
+  return [...groups.values()].flatMap(items => sameProductBlocks(items)).filter(block => block.length <= MAX_BLOCK_SIZE);
+};
 
 /**
  * For judging outside this process (for example Codex signed in with ChatGPT): the exact prompt, response
  * schema and per-block payloads the Gemini judge would receive. Product names only; no ids, people or notes.
  */
 export function exportBlocks(catalog: CatalogItem[]) {
-  const groups = new Map<string, CatalogItem[]>();
-  for (const item of catalog) groups.set(item.groupId, [...(groups.get(item.groupId) ?? []), item]);
-  const blocks = [...groups.values()].flatMap(items => sameProductBlocks(items)).filter(block => block.length <= MAX_BLOCK_SIZE);
+  const blocks = judgeableBlocks(catalog);
   return {version: 1 as const, promptVersion: SAME_PRODUCT_PROMPT_VERSION, prompt: SAME_PRODUCT_PROMPT, responseSchema: SAME_PRODUCT_RESPONSE_SCHEMA,
     instructions: 'For every block, answer exactly as the prompt asks, using the block payload as the entries. Write {version:1, judge:"<provider/model>", blocks:[{blockId, groups}]}.',
     blocks: blocks.map(block => ({blockId: blockId(block), payload: sameProductPayload(block)}))};
 }
 const judgmentsSchema = z.object({version: z.literal(1), judge: z.string().trim().min(1).max(100),
   blocks: z.array(z.object({blockId: z.string().regex(/^[0-9a-f]{16}$/)}).merge(sameProductResponseSchema)).max(5000)});
-/** Answers produced outside this process. They are untrusted and pass the same validation as a live model's. */
-export function judgeFromJudgments(input: unknown): {judge: SameProductJudge; label: string} {
+/**
+ * Answers produced outside this process. They are untrusted and pass the same validation as a live model's.
+ * They must answer exactly the current catalog's blocks: none missing, none left over (a changed or vanished block).
+ */
+export function judgeFromJudgments(input: unknown, catalog: CatalogItem[]): {judge: SameProductJudge; label: string} {
   const parsed = judgmentsSchema.parse(input), answers = new Map<string, RawSameProductGroup[]>();
   for (const block of parsed.blocks) { if (answers.has(block.blockId)) throw new Error('Duplicate block judgment'); answers.set(block.blockId, block.groups); }
+  const current = new Set(judgeableBlocks(catalog).map(blockId));
+  if (current.size !== answers.size || [...current].some(id => !answers.has(id))) throw new Error('Judgments do not match the current catalog; export the blocks again and judge all of them');
   return {label: `external:${parsed.judge}`, judge: async block => {
-    const groups = answers.get(blockId(block));
+    // analyzeCatalog always judges blocks of catalog items, which carry the group needed for the id.
+    const groups = answers.get(blockId(block as readonly CatalogItem[]));
     // A missing answer would silently skip duplicates; every block must be judged against the current catalog.
-    if (!groups) throw new Error('Missing judgment for a block; export the blocks again and judge all of them');
+    if (!groups) throw new Error('Judgments do not match the current catalog; export the blocks again and judge all of them');
     return groups;
   }};
 }
@@ -287,7 +302,7 @@ async function main(): Promise<void> {
       }
       if (!args.includes('--analyze')) { console.log('Inventory only. Add --analyze to make the paid model calls, or --export-blocks to judge elsewhere.'); return; }
       const judgments = option('judgments');
-      const external = judgments ? judgeFromJudgments(JSON.parse(await readFile(resolve(judgments), 'utf8'))) : null;
+      const external = judgments ? judgeFromJudgments(JSON.parse(await readFile(resolve(judgments), 'utf8')), catalog) : null;
       const review = external ? await analyzeCatalog(catalog, external.judge, external.label) : await analyzeCatalog(catalog);
       const covers = new Map(catalog.map(item => [item.id, item.coverPhotoId]));
       const thumbs = await thumbnails(client, review.clusters.flatMap(c => c.items.map(item => covers.get(item.id))).filter((id): id is string => !!id));
@@ -301,7 +316,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main().catch(error => {
-    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence|Missing judgment for a block; export the blocks again and judge all of them|Duplicate block judgment|Review clusters overlap; regenerate the review)$/.test(error.message) ? error.message : 'stopped';
+    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence|Judgments do not match the current catalog; export the blocks again and judge all of them|Duplicate block judgment|Review clusters overlap; regenerate the review)$/.test(error.message) ? error.message : 'stopped';
     console.error(`Same-product planning stopped (${code}); no private record text or credentials were printed.`);
     process.exitCode = 1;
   });
