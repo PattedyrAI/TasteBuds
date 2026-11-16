@@ -14,7 +14,7 @@ import tempfile
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = {'Dockerfile', '.dockerignore', '.railwayignore', 'railway.toml', 'package.json', 'package-lock.json', 'next.config.ts', 'next-env.d.ts', 'tsconfig.json'}
+ROOT_FILES = {'Dockerfile', '.dockerignore', '.railwayignore', 'package.json', 'package-lock.json', 'next.config.ts', 'next-env.d.ts', 'tsconfig.json'}
 PROJECT = '15f6b10e-fb42-42fa-b83c-988a09fae42a'
 ENVIRONMENT = 'f42f3c21-f3ae-4651-859e-7d4fde685162'
 WEB_SERVICE = '280a7c2d-6bf2-4761-aec1-ac3428d543f0'
