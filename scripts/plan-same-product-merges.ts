@@ -37,6 +37,7 @@ async function onDedicatedClient<T>(client: PoolClient, work: () => Promise<T>):
 
 const itemColumns = `i.id, i.group_id AS "groupId", i.name, b.name AS brand, i.variant, t.name AS type, i.legacy_photo_id AS "legacyPhotoId",
   (SELECT count(*)::int FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) AS "tastingCount",
+  (SELECT count(*)::int FROM everrate.ratings r WHERE r.item_id=i.id) AS "historyCount",
   (SELECT r.photo_id FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL AND r.photo_id IS NOT NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC LIMIT 1) AS "coverPhotoId"
   FROM everrate.items i
   LEFT JOIN everrate.brands b ON b.id=i.brand_id AND b.group_id=i.group_id
@@ -78,19 +79,45 @@ export async function analyzeCatalog(catalog: CatalogItem[], judge: SameProductJ
  * Approved clusters become guarded plans from a fresh snapshot. A cluster whose items changed identity
  * since review (renamed, re-branded, sugar tag flipped, no longer visible) is dropped and reported.
  */
+/** Plan moves per batch stay well under the applicator's 2000-move / 1000-item limits; all history rows move. */
+const MAX_PLAN_MOVES = 1800, MAX_PLAN_ITEMS = 900;
+
+/**
+ * A review file is an operator-editable input: re-check every invariant the analysis produced
+ * instead of trusting it (destination inside its own cluster, no shared items, one block, an existing name).
+ */
+export function assertReviewIntegrity(review: SameProductReview): void {
+  const seen = new Set<string>();
+  for (const cluster of review.clusters.filter(row => row.approved)) {
+    const ids = cluster.items.map(item => item.id);
+    if (new Set(ids).size !== ids.length || ids.some(id => seen.has(id))) throw new Error('Review clusters overlap; regenerate the review');
+    ids.forEach(id => seen.add(id));
+    if (!ids.includes(cluster.destinationId)) throw new Error(`Cluster ${cluster.key} keeps ratings on an item outside the cluster`);
+    const block = sameProductBlock(cluster.items[0]);
+    if (!block || cluster.items.some(item => sameProductBlock(item) !== block)) throw new Error(`Cluster ${cluster.key} mixes brands, types or the Sugarfree tag`);
+    if (cluster.rename !== null && !cluster.items.some(item => item.name === cluster.rename)) throw new Error(`Cluster ${cluster.key} renames to a name none of its items has`);
+  }
+}
+
 export async function planApprovedClusters(client: PoolClient, review: SameProductReview, evidence: string) {
   if (evidence.trim().length < 20) throw new Error('Describe the operator review in --evidence');
+  assertReviewIntegrity(review);
   const approved = review.clusters.filter(cluster => cluster.approved);
   const ids = [...new Set(approved.flatMap(cluster => cluster.items.map(item => item.id)))];
   return onDedicatedClient(client, async () => {
-    const current = new Map((await client.query<CatalogItem & {legacyPhotoId: string | null}>(`SELECT ${itemColumns} WHERE i.id=ANY($1::uuid[])`, [ids])).rows.map(row => [row.id, row]));
-    const stale: string[] = [], plans: IdentityCorrectionPlan[] = [];
+    const current = new Map((await client.query<CatalogItem & {legacyPhotoId: string | null; historyCount: number}>(`SELECT ${itemColumns} WHERE i.id=ANY($1::uuid[])`, [ids])).rows.map(row => [row.id, row]));
+    const stale: string[] = [], oversized: string[] = [], plans: IdentityCorrectionPlan[] = [];
     const usable = approved.filter(cluster => {
       const rows = cluster.items.map(item => current.get(item.id));
-      const reviewed = sameProductBlock(cluster.items[0]);
-      const ok = rows.every((row, n) => row && row.groupId === cluster.groupId && row.tastingCount > 0 && row.name === cluster.items[n].name && sameProductBlock(row) === reviewed && reviewed !== null);
-      if (!ok) stale.push(cluster.key);
-      return ok;
+      // The complete reviewed identity must be unchanged: a flavour variant edited after review is another product.
+      const ok = rows.every((row, n) => {
+        const was = cluster.items[n];
+        return row && row.groupId === cluster.groupId && row.tastingCount > 0 && row.name === was.name && row.brand === was.brand && row.variant === was.variant && row.type === was.type;
+      });
+      if (!ok) { stale.push(cluster.key); return false; }
+      const history = cluster.items.filter(item => item.id !== cluster.destinationId).reduce((sum, item) => sum + current.get(item.id)!.historyCount, 0);
+      if (history > MAX_PLAN_MOVES || cluster.items.length > MAX_PLAN_ITEMS) { oversized.push(cluster.key); return false; }
+      return true;
     });
     for (const groupId of [...new Set(usable.map(cluster => cluster.groupId))].sort()) {
       let batch: typeof usable = [], moveCount = 0;
@@ -121,14 +148,14 @@ export async function planApprovedClusters(client: PoolClient, review: SameProdu
         batch = []; moveCount = 0;
       };
       for (const cluster of usable.filter(cluster => cluster.groupId === groupId)) {
-        const moves = cluster.items.filter(item => item.id !== cluster.destinationId).reduce((sum, item) => sum + current.get(item.id)!.tastingCount, 0);
-        // Live tastings bound deleted history loosely; keep generous headroom under the 2000-move / 1000-item limits.
-        if (batch.length && (moveCount + moves > 1200 || batch.reduce((n, c) => n + c.items.length, 0) + cluster.items.length > 900 || batch.length >= 150)) await flush();
+        // Every history row moves, deleted ones included, so size batches by complete history.
+        const moves = cluster.items.filter(item => item.id !== cluster.destinationId).reduce((sum, item) => sum + current.get(item.id)!.historyCount, 0);
+        if (batch.length && (moveCount + moves > MAX_PLAN_MOVES || batch.reduce((n, c) => n + c.items.length, 0) + cluster.items.length > MAX_PLAN_ITEMS || batch.length >= 150)) await flush();
         batch.push(cluster); moveCount += moves;
       }
       await flush();
     }
-    return {plans, stale};
+    return {plans, stale, oversized};
   });
 }
 
@@ -199,12 +226,13 @@ async function main(): Promise<void> {
       const reviewFile = option('plan');
       if (reviewFile) {
         const review = reviewSchema.parse(JSON.parse(await readFile(resolve(reviewFile), 'utf8')));
-        const {plans, stale} = await planApprovedClusters(client, review, option('evidence') ?? '');
+        const {plans, stale, oversized} = await planApprovedClusters(client, review, option('evidence') ?? '');
         const directory = await privateDirectory('same-product', review.runId);
         for (const plan of plans) {
           const file = await writePrivate(resolve(directory, `plan-${plan.groupId}-${plan.planId}.json`), JSON.stringify(plan, null, 2) + '\n');
           console.log(`Plan ${file}: ${plan.moves.length} rating moves, ${plan.updates.length} renames`);
         }
+        if (oversized.length) console.log(`Skipped ${oversized.length} clusters too large for one plan (handle separately): ${oversized.join(', ')}`);
         if (stale.length) console.log(`Dropped ${stale.length} clusters whose items changed since review: ${stale.join(', ')}`);
         if (!plans.length) console.log('No approved clusters; no plan written.');
         return;
@@ -228,7 +256,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main().catch(error => {
-    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence)$/.test(error.message) ? error.message : 'stopped';
+    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence|Review clusters overlap; regenerate the review)$/.test(error.message) ? error.message : 'stopped';
     console.error(`Same-product planning stopped (${code}); no private record text or credentials were printed.`);
     process.exitCode = 1;
   });

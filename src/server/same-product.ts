@@ -5,6 +5,7 @@ import {identityKey} from '../domain/ratings';
 import {CONFIDENT, MAX_BLOCK_SIZE, mergeTarget, sameProductBlock, sameProductPayload, validateSameProductGroups, type RawSameProductGroup, type SameProductItem} from '../domain/same-product';
 import {generateJson} from './gemini';
 import {requireAiEnabled} from './recognition';
+import {HttpError} from './auth';
 import {listItems} from './services/items';
 import {parse} from './services/common';
 
@@ -19,13 +20,13 @@ For each group return the entry indexes, keep = the index whose name is the clea
 const schema = {type: 'object', properties: {groups: {type: 'array', items: {type: 'object', properties: {items: {type: 'array', items: {type: 'integer'}}, keep: {type: 'integer'}, confidence: {type: 'number'}, reason: {type: 'string'}}, required: ['items', 'keep', 'confidence', 'reason']}}}, required: ['groups']};
 const responseSchema = z.object({groups: z.array(z.object({items: z.array(z.number()).max(MAX_BLOCK_SIZE), keep: z.number(), confidence: z.number(), reason: z.string().max(2000)})).max(MAX_BLOCK_SIZE)});
 
-export type SameProductJudge = (block: readonly SameProductItem[]) => Promise<RawSameProductGroup[]>;
+export type SameProductJudge = (block: readonly SameProductItem[], timeoutMs?: number) => Promise<RawSameProductGroup[]>;
 
 /** Asks the model which entries of one block are the same product. Output is validated again by the caller. */
-export const judgeSameProducts: SameProductJudge = async block => {
+export const judgeSameProducts: SameProductJudge = async (block, timeoutMs = 60_000) => {
   if (block.length < 2) return [];
   if (block.length > MAX_BLOCK_SIZE) throw new Error('block_too_large');
-  const result = await generateJson([{text: prompt}, {text: JSON.stringify(sameProductPayload(block))}], schema, {maxOutputTokens: 4000, timeoutMs: 60_000});
+  const result = await generateJson([{text: prompt}, {text: JSON.stringify(sameProductPayload(block))}], schema, {maxOutputTokens: 4000, timeoutMs});
   return responseSchema.parse(result.value).groups;
 };
 
@@ -33,7 +34,10 @@ const querySchema = z.object({
   name: z.string().trim().min(1).max(160), brand: z.string().trim().max(120).nullable().optional(),
   variant: z.string().trim().max(120).nullable().optional(), type: z.string().trim().max(80).nullable().optional(),
 });
+/** Best-effort spending guard: per process, so it resets on restart and multiplies across replicas. */
 const DAILY_LIMIT = 60;
+/** The rater is waiting at Save; the form gives up sooner still and saves as new. */
+const RATING_TIME_TIMEOUT_MS = 8_000;
 const usage = new Map<string, {day: string; count: number}>();
 function withinDailyLimit(userId: string): boolean {
   const day = new Date().toISOString().slice(0, 10), current = usage.get(userId);
@@ -73,13 +77,16 @@ export async function findSameProduct(userId: string, groupId: string, input: un
   if (!withinDailyLimit(userId)) return {match: null};
   const shown: SameProductItem[] = [candidate, ...block.slice(0, MAX_BLOCK_SIZE - 1)];
   try {
-    const clusters = validateSameProductGroups(shown, await judge(shown));
+    // Consent may have been withdrawn while the catalog was read; check again right before the provider call.
+    await requireAiEnabled(userId);
+    const clusters = validateSameProductGroups(shown, await judge(shown, RATING_TIME_TIMEOUT_MS));
     const hit = clusters.find(cluster => cluster.itemIds.includes('') && cluster.confidence >= CONFIDENT);
     if (!hit) return {match: null};
     const existing = new Map(shown.filter(item => item.id).map(item => [item.id, item]));
     const target = mergeTarget({...hit, itemIds: hit.itemIds.filter(id => id), keepNameOf: hit.keepNameOf || hit.itemIds.find(id => id)!}, existing);
     return {match: block.find(item => item.id === target.destination.id) ?? null};
   } catch (error) {
+    if (error instanceof HttpError) throw error;
     // Fixed codes only; never log typed names or provider bodies.
     console.warn('Same-product check failed', {failureClass: error instanceof Error && /^(provider_\d{3}|not_configured|unrecognised|invalid_model|block_too_large)$/.test(error.message) ? error.message : 'check_failed'});
     return {match: null};

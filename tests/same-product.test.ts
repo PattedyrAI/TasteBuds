@@ -81,3 +81,27 @@ describe('review page', () => {
     expect(html).toContain('R&amp;B');
   });
 });
+
+describe('review file integrity', async () => {
+  const {assertReviewIntegrity} = await import('../scripts/plan-same-product-merges');
+  const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const row = (n: number, patch: Record<string, unknown> = {}) => ({id: id(n), name: `Name ${n}`, brand: 'Red Bull', variant: null, type: 'Energy drinks', tastingCount: 1, ...patch});
+  const cluster = (key: string, items: ReturnType<typeof row>[], patch: Record<string, unknown> = {}) => ({key, groupId: id(99), approved: true, confidence: .9, reason: '', destinationId: items[0].id, rename: null, items, ...patch});
+  const review = (clusters: ReturnType<typeof cluster>[]) => ({version: 1 as const, runId: id(98), model: 'm', promptVersion: 'p', skippedBlocks: 0, clusters});
+  it('accepts an untouched review', () => {
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2)]), cluster('bbbbbbbbbbbb', [row(3), row(4)])]))).not.toThrow();
+  });
+  it('rejects a destination edited to an item outside its cluster (e.g. a sugar-free item elsewhere)', () => {
+    const sugarfree = cluster('bbbbbbbbbbbb', [row(3, {variant: 'Sugarfree'}), row(4, {variant: 'Sugarfree'})]);
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2)], {destinationId: id(3)}), sugarfree]))).toThrow(/outside the cluster/);
+  });
+  it('rejects overlapping clusters, mixed sugar tags or brands, and invented names', () => {
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2)]), cluster('bbbbbbbbbbbb', [row(2), row(3)])]))).toThrow(/overlap/);
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2, {variant: 'Sugarfree'})])]))).toThrow(/Sugarfree/);
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2, {brand: 'Monster'})])]))).toThrow(/brands/);
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2)], {rename: 'Something new'})]))).toThrow(/renames/);
+  });
+  it('ignores clusters the operator left unapproved', () => {
+    expect(() => assertReviewIntegrity(review([cluster('aaaaaaaaaaaa', [row(1), row(2)], {approved: false, destinationId: id(7)})]))).not.toThrow();
+  });
+});

@@ -9,6 +9,8 @@ People type product names by hand, so one product can end up as several items ("
 
 Items are only compared inside a **block**: same group, same brand (spelling-insensitive, `Redbull` = `Red Bull`), same type and the same **Sugarfree tag**. A sugar-free and a regular item are never sent to the model together, and every returned group is checked again. Items without a brand never merge.
 
+At rating time the check gives up after a few seconds and saves as new; consent is re-checked right before the model call; once a save has been sent, retries resend the same request without a new check. A per-user daily cap (60) is best-effort: it lives in process memory, so it resets on restart and applies per replica.
+
 The model (Gemini, `GEMINI_MODEL`) returns entry indexes and which existing name to keep. It cannot invent a name. Groups that are out of range, overlapping, single, or that mix blocks are discarded. Ratings move to the most-rated item (ties: lowest id), which takes the kept name. Source items are not deleted. With no live ratings left, they drop out of the catalog.
 
 ## Backfill
@@ -23,7 +25,7 @@ SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --plan
 # 4. Validate (rollback), then apply with the existing applicator: see IDENTITY-CORRECTIONS.md
 ```
 
-Clusters with confidence ≥ 0.8 start approved; the rest are shown but left apart. Step 3 drops any cluster whose items were renamed, re-branded, re-tagged or emptied since review. A non-loopback database needs `--allow-remote-readonly`; every read runs in a `REPEATABLE READ READ ONLY` transaction. **Reading production, the paid analysis on production photos and applying plans in production each need Patrick's explicit approval.**
+Clusters with confidence ≥ 0.8 start approved; the rest are shown but left apart. Step 3 treats the review file as untrusted input: it refuses a destination outside its cluster, overlapping clusters, a cluster mixing brands, types or the Sugarfree tag, and a rename to a name none of the cluster's items has. It drops any cluster whose items changed name, brand, variant or type, or were emptied, since review, and skips (and lists) a cluster whose full rating history, deleted rows included, is too large for one plan. A non-loopback database needs `--allow-remote-readonly`; every read runs in a `REPEATABLE READ READ ONLY` transaction. **Reading production, the paid analysis on production photos and applying plans in production each need Patrick's explicit approval.**
 
 ## Verification
 

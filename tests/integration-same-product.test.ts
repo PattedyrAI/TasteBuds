@@ -138,6 +138,31 @@ describe.skipIf(!url)('same-product matching and merge planning', () => {
     expect((await applyIdentityCorrections(client, plans[0], {apply: true})).alreadyApplied).toBe(true);
   });
 
+  it('treats a flavour variant edited after review as stale', async () => {
+    const a = (await rate(owner, 'Lime Pistachio', null, 4, 'Monster')).itemId;
+    const review = await analyzeCatalog(await readCatalog(client, groupId), pistachioJudge, 'fake-model');
+    const cluster = review.clusters.find(row => row.items.some(item => item.id === a))!;
+    await getPool().query("UPDATE everrate.items SET variant='Mango' WHERE id=$1", [a]);
+    const {plans, stale} = await planApprovedClusters(client, {...review, clusters: [cluster]}, 'Reviewed on the page; variant changed meanwhile.');
+    expect(plans).toEqual([]);
+    expect(stale).toEqual([cluster.key]);
+    await getPool().query('UPDATE everrate.items SET variant=NULL WHERE id=$1', [a]);
+  });
+
+  it('sizes plans by complete history and skips a cluster too large for one plan', async () => {
+    const big = (await rate(owner, 'Salted Pistachio', null, 4, 'Burn')).itemId;
+    const other = (await rate(owner, 'Salted Pistachio Edition', null, 5, 'Burn')).itemId;
+    await rate(owner, '', null, 6, 'Burn', other); // destination has more live ratings
+    await getPool().query(`INSERT INTO everrate.ratings(group_id,item_id,user_id,score,tasted_at,photo_id,source,deleted_at)
+      SELECT $1,$2,$3,5,now(),(SELECT photo_id FROM everrate.ratings WHERE item_id=$2 LIMIT 1),'import',now() FROM generate_series(1,1801)`, [groupId, big, owner]);
+    const review = await analyzeCatalog((await readCatalog(client, groupId)).filter(row => row.brand === 'Burn'), pistachioJudge, 'fake-model');
+    expect(review.clusters).toHaveLength(1);
+    expect(review.clusters[0].destinationId).toBe(other);
+    const {plans, oversized} = await planApprovedClusters(client, review, 'Reviewed; this one carries a large deleted history.');
+    expect(plans).toEqual([]);
+    expect(oversized).toEqual([review.clusters[0].key]);
+  });
+
   it('drops an approved cluster whose items changed after review', async () => {
     const a = (await rate(owner, 'Peach Pistachio', null, 4, 'Monster')).itemId;
     const review = await analyzeCatalog(await readCatalog(client, groupId), pistachioJudge, 'fake-model');
