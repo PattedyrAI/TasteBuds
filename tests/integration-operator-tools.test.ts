@@ -5,6 +5,10 @@ import {migrate} from '../scripts/migrate';
 import {getPool} from '../src/server/db';
 import * as service from '../src/server/service';
 import {createGroupCategory} from '../scripts/create-group-category';
+import {assertTunnelEnvironment, readPrivateJson, runOperation} from '../scripts/production-operator';
+import {chmod, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {analyzeCatalog, blockId, exportBlocks, judgeFromJudgments, readCatalog} from '../scripts/plan-same-product-merges';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -109,5 +113,42 @@ describe.skipIf(!url)('operator tools', () => {
     current = await readCatalog(client, groupId); expect(() => judgeFromJudgments(answer(), current)).toThrow(/do not match/);
     await getPool().query('UPDATE everrate.ratings SET deleted_at=NULL WHERE item_id=$1', [b]);
     expect(blockId(catalog.filter(i => [a, b].includes(i.id)).reverse())).toBe(exported.blocks[0].blockId);
+  });
+
+  it('production runner: creates a category as the runtime role only, and only through the tunnel', async () => {
+    // The same grants provision-runtime-role gives these tables in production.
+    await client.query("DO $$BEGIN CREATE ROLE everrate_app NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END$$");
+    await client.query('GRANT USAGE ON SCHEMA everrate TO everrate_app');
+    await client.query('GRANT SELECT,INSERT,UPDATE ON everrate.groups,everrate.item_types TO everrate_app');
+    await client.query('GRANT INSERT ON everrate.audit_events TO everrate_app');
+    const created = await runOperation(client, 'category', spec({name: 'Bars'}), true) as Awaited<ReturnType<typeof createGroupCategory>>;
+    expect(created).toMatchObject({status: 'created', applied: true});
+    expect((await client.query('SELECT current_user AS role')).rows[0].role).not.toBe('everrate_app'); // role reset afterwards
+    expect((await client.query("SELECT actor_id FROM everrate.audit_events WHERE resource_id=$1", [created.categoryId])).rows).toEqual([{actor_id: null}]);
+    // It really runs with the app's privileges: reading audit history is refused.
+    await client.query('SET ROLE everrate_app');
+    await expect(client.query('SELECT 1 FROM everrate.audit_events LIMIT 1')).rejects.toThrow(/permission denied/);
+    await client.query('RESET ROLE');
+
+    // A reset that fails after the commit still returns the committed result instead of an error.
+    const flaky = new Proxy(client, {get: (target, key) => key === 'query'
+      ? (sql: string, ...rest: unknown[]) => sql === 'RESET ROLE' ? Promise.reject(new Error('connection lost')) : (target.query as (...a: unknown[]) => unknown).call(target, sql, ...rest)
+      : Reflect.get(target, key)});
+    expect(await runOperation(flaky, 'category', spec({name: 'Cafes'}), true)).toMatchObject({status: 'created', applied: true});
+    await client.query('RESET ROLE');
+
+    const folder = await mkdtemp(join(tmpdir(), 'operator-'));
+    try {
+      const file = join(folder, 'spec.json');
+      await writeFile(file, JSON.stringify(spec()));
+      await chmod(file, 0o644);
+      await expect(readPrivateJson(file)).rejects.toThrow(/0600/);
+      await chmod(file, 0o600);
+      expect(await readPrivateJson(file)).toMatchObject({name: 'Restaurants'});
+    } finally { await rm(folder, {recursive: true}); }
+    const tunnel = {PGHOST: '127.0.0.1', PGPORT: '5555', PGSSLMODE: 'disable', PGPASSFILE: '/private/pgpass'};
+    expect(() => assertTunnelEnvironment(tunnel)).not.toThrow();
+    for (const bad of [{PGHOST: 'db.example.com'}, {PGSSLMODE: 'prefer'}, {PGPASSFILE: undefined}, {PGPASSWORD: 'x'}])
+      expect(() => assertTunnelEnvironment({...tunnel, ...bad})).toThrow(/production-operator.py/);
   });
 });

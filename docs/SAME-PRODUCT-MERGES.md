@@ -25,6 +25,8 @@ SAME_PRODUCT_DATABASE_URL=... npx tsx scripts/plan-same-product-merges.ts --plan
 # 4. Validate (rollback), then apply with the existing applicator: see IDENTITY-CORRECTIONS.md
 ```
 
+In production, run steps 3 and 4 through the encrypted tunnel wrapper in [PRODUCTION-OPERATOR.md](PRODUCTION-OPERATOR.md) (`plan-merges`, then `apply-plan`).
+
 Clusters with confidence ≥ 0.8 start approved; the rest are shown but left apart. Step 3 treats the review file as untrusted input: it refuses a destination outside its cluster, overlapping clusters, a cluster mixing brands, types or the Sugarfree tag, and a rename to a name none of the cluster's items has. It drops any cluster whose items changed name, brand, variant or type, or were emptied, since review, and skips (and lists) a cluster whose full rating history, deleted rows included, is too large for one plan. A non-loopback database needs `--allow-remote-readonly`; every read runs in a `REPEATABLE READ READ ONLY` transaction. **Reading production, the paid analysis on production photos and applying plans in production each need Patrick's explicit approval.**
 
 ## Verification
