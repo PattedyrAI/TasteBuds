@@ -163,6 +163,20 @@ describe.skipIf(!url)('same-product matching and merge planning', () => {
     expect(oversized).toEqual([review.clusters[0].key]);
   });
 
+  it('splits batches by photo guards, not only by moves and items', async () => {
+    const review = await analyzeCatalog((await readCatalog(client, groupId)).filter(row => row.brand !== 'Burn'), pistachioJudge, 'fake-model');
+    const extra = (await rate(owner, 'Pistachio Twist', null, 6, 'Rockstar')).itemId, extra2 = (await rate(owner, 'Pistachio Twist Edition', null, 6, 'Rockstar')).itemId;
+    const second = await analyzeCatalog((await readCatalog(client, groupId)).filter(row => row.brand === 'Rockstar'), pistachioJudge, 'fake-model');
+    const clusters = [...review.clusters.filter(c => c.items.every(i => i.brand === 'Monster')), ...second.clusters];
+    expect(clusters.length).toBeGreaterThanOrEqual(2);
+    expect(second.clusters[0].items.map(i => i.id).sort()).toEqual([extra, extra2].sort());
+    const loose = await planApprovedClusters(client, {...review, clusters}, 'Reviewed on the page; testing batch sizing.');
+    expect(loose.plans).toHaveLength(1);
+    const tight = await planApprovedClusters(client, {...review, clusters}, 'Reviewed on the page; testing batch sizing.', {moves: 1800, items: 900, photos: 1});
+    expect(tight.plans.length).toBe(clusters.length); // one moved photo per cluster: each cluster needs its own plan
+    for (const plan of tight.plans) expect(plan.photos.length).toBeLessThanOrEqual(1);
+  });
+
   it('drops an approved cluster whose items changed after review', async () => {
     const a = (await rate(owner, 'Peach Pistachio', null, 4, 'Monster')).itemId;
     const review = await analyzeCatalog(await readCatalog(client, groupId), pistachioJudge, 'fake-model');

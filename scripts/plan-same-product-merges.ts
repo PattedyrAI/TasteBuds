@@ -38,6 +38,7 @@ async function onDedicatedClient<T>(client: PoolClient, work: () => Promise<T>):
 const itemColumns = `i.id, i.group_id AS "groupId", i.name, b.name AS brand, i.variant, t.name AS type, i.legacy_photo_id AS "legacyPhotoId",
   (SELECT count(*)::int FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL) AS "tastingCount",
   (SELECT count(*)::int FROM everrate.ratings r WHERE r.item_id=i.id) AS "historyCount",
+  (SELECT count(DISTINCT r.photo_id)::int FROM everrate.ratings r WHERE r.item_id=i.id) AS "historyPhotoCount",
   (SELECT r.photo_id FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL AND r.photo_id IS NOT NULL ORDER BY r.tasted_at DESC,r.created_at DESC,r.id DESC LIMIT 1) AS "coverPhotoId"
   FROM everrate.items i
   LEFT JOIN everrate.brands b ON b.id=i.brand_id AND b.group_id=i.group_id
@@ -80,7 +81,7 @@ export async function analyzeCatalog(catalog: CatalogItem[], judge: SameProductJ
  * since review (renamed, re-branded, sugar tag flipped, no longer visible) is dropped and reported.
  */
 /** Plan moves per batch stay well under the applicator's 2000-move / 1000-item limits; all history rows move. */
-const MAX_PLAN_MOVES = 1800, MAX_PLAN_ITEMS = 900;
+const MAX_PLAN_MOVES = 1800, MAX_PLAN_ITEMS = 900, MAX_PLAN_PHOTOS = 1800;
 
 /**
  * A review file is an operator-editable input: re-check every invariant the analysis produced
@@ -99,14 +100,21 @@ export function assertReviewIntegrity(review: SameProductReview): void {
   }
 }
 
-export async function planApprovedClusters(client: PoolClient, review: SameProductReview, evidence: string) {
+export async function planApprovedClusters(client: PoolClient, review: SameProductReview, evidence: string, limits = {moves: MAX_PLAN_MOVES, items: MAX_PLAN_ITEMS, photos: MAX_PLAN_PHOTOS}) {
   if (evidence.trim().length < 20) throw new Error('Describe the operator review in --evidence');
   assertReviewIntegrity(review);
   const approved = review.clusters.filter(cluster => cluster.approved);
   const ids = [...new Set(approved.flatMap(cluster => cluster.items.map(item => item.id)))];
   return onDedicatedClient(client, async () => {
-    const current = new Map((await client.query<CatalogItem & {legacyPhotoId: string | null; historyCount: number}>(`SELECT ${itemColumns} WHERE i.id=ANY($1::uuid[])`, [ids])).rows.map(row => [row.id, row]));
+    const current = new Map((await client.query<CatalogItem & {legacyPhotoId: string | null; historyCount: number; historyPhotoCount: number}>(`SELECT ${itemColumns} WHERE i.id=ANY($1::uuid[])`, [ids])).rows.map(row => [row.id, row]));
     const stale: string[] = [], oversized: string[] = [], plans: IdentityCorrectionPlan[] = [];
+    // What one cluster adds to a plan: moved history rows, item guards, and photo guards
+    // (each moved rating's photo plus every item's legacy cover, as captureIdentitySnapshots collects them).
+    const clusterSize = (cluster: SameProductReview['clusters'][number]) => {
+      const rows = cluster.items.map(item => current.get(item.id)!), sources = rows.filter(row => row.id !== cluster.destinationId);
+      return {moves: sources.reduce((n, row) => n + row.historyCount, 0), items: rows.length,
+        photos: sources.reduce((n, row) => n + row.historyPhotoCount, 0) + rows.filter(row => row.legacyPhotoId).length};
+    };
     const usable = approved.filter(cluster => {
       const rows = cluster.items.map(item => current.get(item.id));
       // The complete reviewed identity must be unchanged: a flavour variant edited after review is another product.
@@ -115,12 +123,12 @@ export async function planApprovedClusters(client: PoolClient, review: SameProdu
         return row && row.groupId === cluster.groupId && row.tastingCount > 0 && row.name === was.name && row.brand === was.brand && row.variant === was.variant && row.type === was.type;
       });
       if (!ok) { stale.push(cluster.key); return false; }
-      const history = cluster.items.filter(item => item.id !== cluster.destinationId).reduce((sum, item) => sum + current.get(item.id)!.historyCount, 0);
-      if (history > MAX_PLAN_MOVES || cluster.items.length > MAX_PLAN_ITEMS) { oversized.push(cluster.key); return false; }
+      const size = clusterSize(cluster);
+      if (size.moves > limits.moves || size.items > limits.items || size.photos > limits.photos) { oversized.push(cluster.key); return false; }
       return true;
     });
     for (const groupId of [...new Set(usable.map(cluster => cluster.groupId))].sort()) {
-      let batch: typeof usable = [], moveCount = 0;
+      let batch: typeof usable = [], total = {moves: 0, items: 0, photos: 0};
       const flush = async () => {
         if (!batch.length) return;
         const destinations = new Map<string, string>();
@@ -145,13 +153,13 @@ export async function planApprovedClusters(client: PoolClient, review: SameProdu
         };
         identityPlanSha256(plan); // Validates the exact v1 contract and its size limits.
         plans.push(plan);
-        batch = []; moveCount = 0;
+        batch = []; total = {moves: 0, items: 0, photos: 0};
       };
       for (const cluster of usable.filter(cluster => cluster.groupId === groupId)) {
-        // Every history row moves, deleted ones included, so size batches by complete history.
-        const moves = cluster.items.filter(item => item.id !== cluster.destinationId).reduce((sum, item) => sum + current.get(item.id)!.historyCount, 0);
-        if (batch.length && (moveCount + moves > MAX_PLAN_MOVES || batch.reduce((n, c) => n + c.items.length, 0) + cluster.items.length > MAX_PLAN_ITEMS || batch.length >= 150)) await flush();
-        batch.push(cluster); moveCount += moves;
+        // Every history row moves, deleted ones included; shared photos are counted twice, which only errs safe.
+        const size = clusterSize(cluster);
+        if (batch.length && (total.moves + size.moves > limits.moves || total.items + size.items > limits.items || total.photos + size.photos > limits.photos || batch.length >= 150)) await flush();
+        batch.push(cluster); total = {moves: total.moves + size.moves, items: total.items + size.items, photos: total.photos + size.photos};
       }
       await flush();
     }

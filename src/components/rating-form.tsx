@@ -4,6 +4,7 @@ import {Camera,Upload,LoaderCircle,Check,X,Expand,Sparkles,Pencil,Plus,ImagePlus
 import type {Category,CustomFields,Item,Rating,RecognitionResult,UploadedPhoto} from '@/lib/contracts';
 import {Modal,Photo,request} from './ui';
 import {reviewPhotoIds} from './review-photos';
+import {requestToSend,type SentRequest} from './save-request';
 import {PhotoViewer} from './photo-viewer';
 import {RatingInput} from './rating-input';
 import {CategoryPicker} from './category-picker';
@@ -26,8 +27,9 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   const [broad,setBroad]=useState(item?.broadCategory||''),[itemId,setItemId]=useState(item?.id),[photoIds,setPhotoIds]=useState<string[]>(reviewPhotoIds(editing||rereview||{})),[score,setScore]=useState<number|''>(editing?.score||rereview?.score||7),[note,setNote]=useState(editing?.note||'');
   const [tastedAt,setTastedAt]=useState(ratingDateValue(editing?.tastedAt||new Date())),[busy,setBusy]=useState(''),[error,setError]=useState(''),[hint,setHint]=useState(''),[matches,setMatches]=useState<Item[]>([]);
   // A brand-new item may already exist under another name; the rater confirms before it is linked.
-  // Once a save was sent, a retry must resend the same request under its idempotency key, so no new check runs.
-  const [sameAs,setSameAs]=useState<Item|null>(null),confirmedNew=useRef(false),saveAttempted=useRef(false);
+  // Once a save was sent, a retry of the unchanged form resends that exact request (same timestamp, same linked item)
+  // under its idempotency key, and no new check runs.
+  const [sameAs,setSameAs]=useState<Item|null>(null),confirmedNew=useRef(false),sentCreate=useRef<SentRequest|null>(null);
   const [templates,setTemplates]=useState(categoryTemplates),[creatingCategory,setCreatingCategory]=useState(false);
   const [extraValues,setExtraValues]=useState<CustomFields>(editing?.customFields||rereview?.customFields||{}),[linkedItem,setLinkedItem]=useState(item);
   // A rereview stays tied to one item; switching sugar version turns it into a first rating of the other item.
@@ -92,7 +94,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   function save(e:React.FormEvent){e.preventDefault();void submit();}
   async function submit(linkTo?:Item){if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}
     const newVariant=energy?(isSugarfree(variant)?SUGARFREE_VARIANT:null):variant||null;
-    if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current&&!saveAttempted.current){
+    if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current&&!sentCreate.current){
       setBusy('Checking whether your group already has this…');setError('');
       // Never blocks saving: a slow or unavailable check gives up after a few seconds and saves as new.
       const check=new AbortController(),deadline=setTimeout(()=>check.abort(),10_000);
@@ -107,7 +109,8 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     const customFields=validateCustomFields(fields,submitted);
     const timestamp=ratingTimestamp(tastedAt,editing?.tastedAt);
     if(editing)await request(`/api/ratings/${editing.id}`,'PATCH',{score,note,tastedAt:timestamp,photoId,photoIds,customFields});
-    else {saveAttempted.current=true;await request('/api/ratings','POST',{groupId,itemId:linkTo?.id??itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId&&!linkTo?newVariant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current});}
+    else {const send=requestToSend(sentCreate.current,snapshot(),()=>({groupId,itemId:linkTo?.id??itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId&&!linkTo?newVariant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current}));
+      sentCreate.current=send;await request('/api/ratings','POST',send.body);}
     if(mounted.current)saved();
   }catch(e){if(!mounted.current)return;setDetailsOpen(true);setError(e instanceof Error?e.message:'Could not save.');setBusy('');}}
   // Anything the person typed, picked or attached since opening is worth a confirmation before it is thrown away.
