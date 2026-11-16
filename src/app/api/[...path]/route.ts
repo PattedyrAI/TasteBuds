@@ -5,6 +5,7 @@ import {recognize} from '@/server/recognition';
 import {connectDiscord} from '@/server/discord';
 import {readJsonBody} from '@/server/request-body';
 import {findItemMatches} from '@/server/item-matches';
+import {findSameProduct} from '@/server/same-product';
 import type {ItemFilters} from '@/lib/contracts';
 import {getRestaurantMap} from '@/server/services/restaurants';
 import {createCategory,updateCategory,getMapsConfiguration} from '@/server/services/categories';
@@ -31,6 +32,7 @@ async function handle(request:Request,{params}:{params:Promise<{path:string[]}>}
       if(p.length===3&&p[2]==='invite'&&method==='POST')return service.rotateInvite(userId,p[1]);
       if(p.length===4&&p[2]==='members'&&method==='DELETE')return service.removeMember(userId,p[1],p[3]);
       if(p.length===3&&p[2]==='items'&&method==='GET')return service.listItems(userId,p[1],Object.fromEntries(new URL(request.url).searchParams) as ItemFilters);
+      if(p.length===3&&p[2]==='same-product'&&method==='POST')return findSameProduct(userId,p[1],body);
       if(p.length===3&&p[2]==='matches'&&method==='GET')return findItemMatches(userId,p[1],Object.fromEntries(new URL(request.url).searchParams));
       if(p.length===3&&p[2]==='feed'&&method==='GET')return service.getFeed(userId,p[1],Object.fromEntries(new URL(request.url).searchParams));
       if(p.length===3&&p[2]==='taste'&&method==='GET')return service.getTasteInsights(userId,p[1]);
