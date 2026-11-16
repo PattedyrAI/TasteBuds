@@ -92,7 +92,16 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     finally{if(uploadController.current===operation)setBusy('');}
   }
   function save(e:React.FormEvent){e.preventDefault();void submit();}
-  async function submit(linkTo?:Item){if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}
+  async function post(body:Record<string,unknown>){
+    setBusy('Saving your rating…');setError('');
+    try{await request('/api/ratings','POST',body);if(mounted.current)saved();}
+    catch(e){if(!mounted.current)return;setDetailsOpen(true);setError(e instanceof Error?e.message:'Could not save.');setBusy('');}
+  }
+  async function submit(linkTo?:Item){
+    // A retry of an unchanged form resends the request already sent, before anything is rebuilt or re-validated
+    // (a confirmed item's place, today's timestamp and the rereview source all live only in that request).
+    if(!editing&&!linkTo&&sentCreate.current&&sentCreate.current.form===retryKey()){await post(sentCreate.current.body);return;}
+    if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}
     const newVariant=energy?(isSugarfree(variant)?SUGARFREE_VARIANT:null):variant||null;
     if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current&&!sentCreate.current){
       setBusy('Checking whether your group already has this…');setError('');
@@ -109,12 +118,14 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     const customFields=validateCustomFields(fields,submitted);
     const timestamp=ratingTimestamp(tastedAt,editing?.tastedAt);
     if(editing)await request(`/api/ratings/${editing.id}`,'PATCH',{score,note,tastedAt:timestamp,photoId,photoIds,customFields});
-    else {const send=requestToSend(sentCreate.current,snapshot(),()=>({groupId,itemId:linkTo?.id??itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId&&!linkTo?newVariant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current}));
+    else {const send=requestToSend(sentCreate.current,retryKey(),()=>({groupId,itemId:linkTo?.id??itemId,customFields,name,brand:brand.trim()||null,variant:energy&&!itemId&&!linkTo?newVariant:variant||null,type:type||null,broadCategory:broad||null,score,note,tastedAt:timestamp,photoId,photoIds,rereviewOf:rereviewing?.id,idempotencyKey:key.current}));
       sentCreate.current=send;await request('/api/ratings','POST',send.body);}
     if(mounted.current)saved();
   }catch(e){if(!mounted.current)return;setDetailsOpen(true);setError(e instanceof Error?e.message:'Could not save.');setBusy('');}}
   // Anything the person typed, picked or attached since opening is worth a confirmation before it is thrown away.
   const snapshot=()=>JSON.stringify({photoIds,note,score,tastedAt,extraValues,name,brand,variant,type,broad,itemId});
+  // What a sent create request depends on: the visible form plus the rereview source, which can change without a visible field.
+  const retryKey=()=>JSON.stringify([snapshot(),rereviewing?.id??null]);
   const initial=useRef<string|null>(null);if(initial.current===null)initial.current=snapshot();
   const dirty=()=>!!busy||snapshot()!==initial.current;
   const mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
