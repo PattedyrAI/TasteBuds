@@ -130,6 +130,13 @@ describe.skipIf(!url)('operator tools', () => {
     await expect(client.query('SELECT 1 FROM everrate.audit_events LIMIT 1')).rejects.toThrow(/permission denied/);
     await client.query('RESET ROLE');
 
+    // A reset that fails after the commit still returns the committed result instead of an error.
+    const flaky = new Proxy(client, {get: (target, key) => key === 'query'
+      ? (sql: string, ...rest: unknown[]) => sql === 'RESET ROLE' ? Promise.reject(new Error('connection lost')) : (target.query as (...a: unknown[]) => unknown).call(target, sql, ...rest)
+      : Reflect.get(target, key)});
+    expect(await runOperation(flaky, 'category', spec({name: 'Cafes'}), true)).toMatchObject({status: 'created', applied: true});
+    await client.query('RESET ROLE');
+
     const folder = await mkdtemp(join(tmpdir(), 'operator-'));
     try {
       const file = join(folder, 'spec.json');

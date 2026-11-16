@@ -21,7 +21,12 @@ export async function runOperation(client: PoolClient, operation: Operation, inp
   if (operation === 'category') {
     // Least privilege: the insert runs as the app's runtime role, so it can do only what the app itself could.
     await client.query(`SET ROLE ${runtimeRole}`);
-    try { return await createGroupCategory(client, input, {apply}); } finally { await client.query('RESET ROLE'); }
+    let result: Awaited<ReturnType<typeof createGroupCategory>>;
+    try { result = await createGroupCategory(client, input, {apply}); }
+    catch (error) { await client.query('RESET ROLE').catch(() => {}); throw error; }
+    // A failed reset after the commit must not hide the committed result; the session ends right after anyway.
+    await client.query('RESET ROLE').catch(() => {});
+    return result;
   }
   // The applicator reads its own audit receipts, which the runtime role cannot, so it runs as the operator.
   return applyIdentityCorrections(client, input, {apply});
@@ -50,7 +55,7 @@ async function main(): Promise<void> {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main().catch(error => {
     const known = /^(Usage: .*|Run this through scripts\/production-operator\.py|Input must be a regular 0600 file under 2 MiB|Group not found|A category with this name already exists with a different template|A dedicated idle client is required.*)$/;
-    console.error(`Operator change stopped (${error instanceof Error && known.test(error.message) ? error.message : 'failed; nothing was committed unless a result line was printed'}); no credentials were printed.`);
+    console.error(`Operator change stopped (${error instanceof Error && known.test(error.message) ? error.message : 'failed after connecting, so the outcome is unknown: rerun the same command without --apply to see the current state before any retry'}); no credentials were printed.`);
     process.exitCode = 1;
   });
 }

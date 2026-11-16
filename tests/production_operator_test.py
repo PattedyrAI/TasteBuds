@@ -101,6 +101,17 @@ class OperatorTests(unittest.TestCase):
         folder = next((self.root / '.private').glob('operator-*'))
         self.assertEqual(folder.stat().st_mode & 0o777, 0o700)
 
+    def test_default_credentials_must_be_private_too(self):
+        (self.root / '.private').mkdir(mode=0o755)
+        default = self.private('.private/railway-legacy.json', '{"pg": {}}', 0o644)
+        args = o.parse_args(['--identity-file', str(self.root / 'key'), 'category', f'--spec={self.spec}'])
+        tunnel = FakeTunnel()
+        with patch.object(o.p, 'ROOT', self.root), contextlib.redirect_stdout(io.StringIO()), self.assertRaises(o.p.GuardError):
+            o.run(args, runner_factory=lambda folder: None, tunnel=lambda runner, identity: (tunnel, 5555),
+                  credentials_env=lambda *a: self.fail('read a loose snapshot'), execute=lambda *a, **k: self.fail('ran'))
+        os.chmod(default, 0o600)
+        self.assertEqual(o.private_input(default), default.resolve())
+
     def test_a_tunnel_that_ended_is_reported(self):
         with self.assertRaises(o.p.GuardError):
             self.run_with(FakeTunnel(dies=True))

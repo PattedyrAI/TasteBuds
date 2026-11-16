@@ -80,7 +80,12 @@ def child_environment(tunnel_env, extra):
 
 
 def run(args, runner_factory=p.Runner, tunnel=p.open_tunnel, credentials_env=p.credential_environment, execute=subprocess.run):
-    snapshot = json.loads((args.credentials or p.ROOT / '.private/railway-legacy.json').read_text())
+    # The default path gets the same private-file check as an explicit --credentials.
+    try:
+        credentials = private_input(args.credentials or p.ROOT / '.private/railway-legacy.json')
+    except argparse.ArgumentTypeError as error:
+        raise p.GuardError(f'Credential snapshot: {error}') from error
+    snapshot = json.loads(credentials.read_text())
     private_dir = p.ROOT / '.private'
     private_dir.mkdir(mode=0o700, exist_ok=True)
     folder = Path(tempfile.mkdtemp(prefix='operator-', dir=private_dir))
