@@ -7,7 +7,7 @@ CATEGORY_DATABASE_URL=postgresql://... npx tsx scripts/create-group-category.ts 
 CATEGORY_DATABASE_URL=postgresql://... npx tsx scripts/create-group-category.ts --spec=category.json --apply    # create
 ```
 
-The spec is `{groupId, name, fields, note}`; `fields` defaults to none, like the app, and uses the app's template schema (`text | number | price | select | boolean | location`, at most one location field). The script never overwrites an existing category. The same name with an identical template is a no-op (`already-exists`); a different template is an error. A non-loopback database needs `--allow-remote`. **A production run needs the group owner's or Patrick's explicit request.**
+The spec is `{groupId, name, fields, note}`; `fields` defaults to none, like the app, and uses the app's template schema (`text | number | price | select | boolean | location`, at most one location field). The script never overwrites an existing category. The same name with an identical template is a no-op (`already-exists`); a different template is an error. A non-loopback database needs `--allow-remote`. In production, run it through [PRODUCTION-OPERATOR.md](PRODUCTION-OPERATOR.md) instead: the database has TLS off, so plaintext public TCP is not an option. **A production run needs the group owner's or Patrick's explicit request.**
 
 Restaurant template, as used for Onlyfans Subscribers (TKT-20102):
 
