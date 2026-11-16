@@ -28,7 +28,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
   const [tastedAt,setTastedAt]=useState(ratingDateValue(editing?.tastedAt||new Date())),[busy,setBusy]=useState(''),[error,setError]=useState(''),[hint,setHint]=useState(''),[matches,setMatches]=useState<Item[]>([]);
   // A brand-new item may already exist under another name; the rater confirms before it is linked.
   // Once a save was sent, a retry of the unchanged form resends that exact request (same timestamp, same linked item)
-  // under its idempotency key, and no new check runs.
+  // under its idempotency key without a new check; a changed form is checked again like a first save.
   const [sameAs,setSameAs]=useState<Item|null>(null),confirmedNew=useRef(false),sentCreate=useRef<SentRequest|null>(null);
   const [templates,setTemplates]=useState(categoryTemplates),[creatingCategory,setCreatingCategory]=useState(false);
   const [extraValues,setExtraValues]=useState<CustomFields>(editing?.customFields||rereview?.customFields||{}),[linkedItem,setLinkedItem]=useState(item);
@@ -103,7 +103,7 @@ export function RatingForm({groupId,item,editing,rereview,categories,categoryTem
     if(!editing&&!linkTo&&sentCreate.current&&sentCreate.current.form===retryKey()){await post(sentCreate.current.body);return;}
     if(!editing&&!itemId&&!broadReviewKind(broad)){setKindError(true);setError('Choose Food, Drink or Other.');kindInput.current?.focus();return;}if(typeof score!=='number'||!Number.isFinite(score)||score<1||score>10){setError('Choose a score from 1 to 10.');return;}if(Math.abs(score*10-Math.round(score*10))>1e-8){setError('Use at most one decimal place.');return;}if(!editing&&!brand.trim()){setError(itemId?'This item needs a brand before another review. Ask a group manager to update it.':'Enter a brand before saving your rating.');return;}if(!photoId){setError('Add a photo before saving your rating.');return;}
     const newVariant=energy?(isSugarfree(variant)?SUGARFREE_VARIANT:null):variant||null;
-    if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current&&!sentCreate.current){
+    if(!editing&&!itemId&&!linkTo&&aiEnabled&&!confirmedNew.current){
       setBusy('Checking whether your group already has this…');setError('');
       // Never blocks saving: a slow or unavailable check gives up after a few seconds and saves as new.
       const check=new AbortController(),deadline=setTimeout(()=>check.abort(),10_000);
