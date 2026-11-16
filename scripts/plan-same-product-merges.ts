@@ -10,8 +10,9 @@ import {pathToFileURL} from 'node:url';
 import {Pool, type PoolClient} from 'pg';
 import sharp from 'sharp';
 import {z} from 'zod';
-import {MAX_BLOCK_SIZE, CONFIDENT, mergeTarget, sameProductBlock, sameProductBlocks, validateSameProductGroups, type SameProductItem} from '../src/domain/same-product';
-import {judgeSameProducts, SAME_PRODUCT_PROMPT_VERSION, type SameProductJudge} from '../src/server/same-product';
+import {type RawSameProductGroup, MAX_BLOCK_SIZE, CONFIDENT, mergeTarget, sameProductBlock, sameProductBlocks, validateSameProductGroups, type SameProductItem} from '../src/domain/same-product';
+import {judgeSameProducts, SAME_PRODUCT_PROMPT, SAME_PRODUCT_PROMPT_VERSION, SAME_PRODUCT_RESPONSE_SCHEMA, sameProductResponseSchema, type SameProductJudge} from '../src/server/same-product';
+import {sameProductPayload} from '../src/domain/same-product';
 import {captureIdentitySnapshots, identityPlanSha256, type IdentityCorrectionPlan} from './apply-identity-corrections';
 import {assertSugarfreeReviewTarget as assertReviewTarget} from './plan-sugarfree-corrections';
 
@@ -49,6 +50,35 @@ export async function readCatalog(client: PoolClient, groupId?: string): Promise
   return onDedicatedClient(client, async () => (await client.query<CatalogItem>(
     `SELECT ${itemColumns} WHERE EXISTS (SELECT 1 FROM everrate.ratings r WHERE r.item_id=i.id AND r.deleted_at IS NULL)
      ${groupId ? 'AND i.group_id=$1' : ''} ORDER BY i.group_id,i.id`, groupId ? [groupId] : [])).rows);
+}
+
+/** Stable for an unchanged catalog: the sorted ids of the block's items. */
+export const blockId = (block: readonly {id: string}[]) => createHash('sha256').update(block.map(item => item.id).sort().join(',')).digest('hex').slice(0, 16);
+
+/**
+ * For judging outside this process (for example Codex signed in with ChatGPT): the exact prompt, response
+ * schema and per-block payloads the Gemini judge would receive. Product names only; no ids, people or notes.
+ */
+export function exportBlocks(catalog: CatalogItem[]) {
+  const groups = new Map<string, CatalogItem[]>();
+  for (const item of catalog) groups.set(item.groupId, [...(groups.get(item.groupId) ?? []), item]);
+  const blocks = [...groups.values()].flatMap(items => sameProductBlocks(items)).filter(block => block.length <= MAX_BLOCK_SIZE);
+  return {version: 1 as const, promptVersion: SAME_PRODUCT_PROMPT_VERSION, prompt: SAME_PRODUCT_PROMPT, responseSchema: SAME_PRODUCT_RESPONSE_SCHEMA,
+    instructions: 'For every block, answer exactly as the prompt asks, using the block payload as the entries. Write {version:1, judge:"<provider/model>", blocks:[{blockId, groups}]}.',
+    blocks: blocks.map(block => ({blockId: blockId(block), payload: sameProductPayload(block)}))};
+}
+const judgmentsSchema = z.object({version: z.literal(1), judge: z.string().trim().min(1).max(100),
+  blocks: z.array(z.object({blockId: z.string().regex(/^[0-9a-f]{16}$/)}).merge(sameProductResponseSchema)).max(5000)});
+/** Answers produced outside this process. They are untrusted and pass the same validation as a live model's. */
+export function judgeFromJudgments(input: unknown): {judge: SameProductJudge; label: string} {
+  const parsed = judgmentsSchema.parse(input), answers = new Map<string, RawSameProductGroup[]>();
+  for (const block of parsed.blocks) { if (answers.has(block.blockId)) throw new Error('Duplicate block judgment'); answers.set(block.blockId, block.groups); }
+  return {label: `external:${parsed.judge}`, judge: async block => {
+    const groups = answers.get(blockId(block));
+    // A missing answer would silently skip duplicates; every block must be judged against the current catalog.
+    if (!groups) throw new Error('Missing judgment for a block; export the blocks again and judge all of them');
+    return groups;
+  }};
 }
 
 const clusterKey = (ids: string[]) => createHash('sha256').update([...ids].sort().join(',')).digest('hex').slice(0, 12);
@@ -222,8 +252,8 @@ async function thumbnails(client: PoolClient, photoIds: string[]): Promise<Map<s
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2), option = (name: string) => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-  const known = ['--allow-remote-readonly', '--analyze'];
-  if (args.some(arg => !known.includes(arg) && !/^--(group|plan|evidence)=/.test(arg))) throw new Error('Unknown planner option');
+  const known = ['--allow-remote-readonly', '--analyze', '--export-blocks'];
+  if (args.some(arg => !known.includes(arg) && !/^--(group|plan|evidence|judgments)=/.test(arg))) throw new Error('Unknown planner option');
   const connectionString = process.env.SAME_PRODUCT_DATABASE_URL;
   if (!connectionString) throw new Error('SAME_PRODUCT_DATABASE_URL is required');
   assertReviewTarget(connectionString, args.includes('--allow-remote-readonly'));
@@ -250,8 +280,15 @@ async function main(): Promise<void> {
       for (const item of catalog) groups.set(item.groupId, [...(groups.get(item.groupId) ?? []), item]);
       const blocks = [...groups.values()].flatMap(items => sameProductBlocks(items));
       console.log(`${catalog.length} visible items; ${blocks.length} blocks to compare (${blocks.filter(b => b.length > MAX_BLOCK_SIZE).length} too large); largest ${Math.max(0, ...blocks.map(b => b.length))}.`);
-      if (!args.includes('--analyze')) { console.log('Inventory only. Add --analyze to make the paid model calls.'); return; }
-      const review = await analyzeCatalog(catalog);
+      if (args.includes('--export-blocks')) {
+        const file = await writePrivate(resolve(await privateDirectory('same-product'), `blocks-${randomUUID()}.json`), JSON.stringify(exportBlocks(catalog), null, 2) + '\n');
+        console.log(`Blocks for an external judge: ${file}`);
+        return;
+      }
+      if (!args.includes('--analyze')) { console.log('Inventory only. Add --analyze to make the paid model calls, or --export-blocks to judge elsewhere.'); return; }
+      const judgments = option('judgments');
+      const external = judgments ? judgeFromJudgments(JSON.parse(await readFile(resolve(judgments), 'utf8'))) : null;
+      const review = external ? await analyzeCatalog(catalog, external.judge, external.label) : await analyzeCatalog(catalog);
       const covers = new Map(catalog.map(item => [item.id, item.coverPhotoId]));
       const thumbs = await thumbnails(client, review.clusters.flatMap(c => c.items.map(item => covers.get(item.id))).filter((id): id is string => !!id));
       const directory = await privateDirectory('same-product', review.runId);
@@ -264,7 +301,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main().catch(error => {
-    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence|Review clusters overlap; regenerate the review)$/.test(error.message) ? error.message : 'stopped';
+    const code = error instanceof Error && /^(provider_\d{3}|not_configured|invalid_model|block_too_large|Unknown planner option|SAME_PRODUCT_DATABASE_URL is required|Non-loopback review requires --allow-remote-readonly|Describe the operator review in --evidence|Missing judgment for a block; export the blocks again and judge all of them|Duplicate block judgment|Review clusters overlap; regenerate the review)$/.test(error.message) ? error.message : 'stopped';
     console.error(`Same-product planning stopped (${code}); no private record text or credentials were printed.`);
     process.exitCode = 1;
   });
