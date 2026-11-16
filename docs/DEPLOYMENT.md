@@ -53,7 +53,7 @@ The app starts its database-backed Discord outbox poller through `src/instrument
 
 For release uploads, additionally create a fresh temporary staging directory using an explicit allowlist:
 
-1. Copy only `Dockerfile`, `.dockerignore`, `.railwayignore`, `railway.toml`, `package.json`, `package-lock.json`, `next.config.ts`, `next-env.d.ts`, `tsconfig.json`, `src/`, and `public/`.
+1. Copy only `Dockerfile`, `.dockerignore`, `.railwayignore`, `package.json`, `package-lock.json`, `next.config.ts`, `next-env.d.ts`, `tsconfig.json`, `src/`, and `public/`.
 2. Recursively exclude the private/environment/test/media/export/attachment patterns in the ignore files. Reject symlinks that resolve outside the selected source tree.
 3. Inspect the staged **filenames and byte counts**, and confirm no `.private`, `.env*`, dumps, real photos, reports or credential material are present. Keep only intentional public application assets, including its install icons.
 4. Upload that directory using `--path-as-root` with the explicit production IDs. Docker exclusions are a second layer; do not rely on Docker to remove files after they have already reached Railway.
@@ -123,7 +123,7 @@ After a confirmed commit, independently reconcile archive/photo byte totals and 
 
 Before any upload, record the release ID, exact source/configuration scope, test/build results, import report and unresolved launch evidence. Complete unit tests, real PostgreSQL permission/history tests, typecheck, a production build, and desktop/mobile journeys. Test the actual Docker build and nonroot runtime when a Docker engine is available; a local Next build is not container-runtime evidence.
 
-`railway.toml` sets the Docker builder, `node server.js`, database-aware `/api/health`, a 120-second health deadline and bounded failure restarts. These are supported [config-as-code settings](https://docs.railway.com/config-as-code/reference). Health returns 503 if the new schema/database cannot be queried; version uses `APP_RELEASE`, then `RAILWAY_GIT_COMMIT_SHA`, then `1.0.0`.
+`.railway/railway.ts` declares the `tastebuds` service settings as Railway infrastructure as code (it replaced the deprecated `railway.toml`): the Docker builder, `node server.js`, database-aware `/api/health`, a 120-second health deadline and bounded failure restarts. It owns only that service (`partial = "tastebuds"`); variables, databases and the other services stay unmanaged. The settings live on the service, so `railway up` uploads need no config file. After changing the file, preview with `railway config plan` from a directory linked to the production service and apply with `railway config apply`. Health returns 503 if the new schema/database cannot be queried; version uses `APP_RELEASE`, then `RAILWAY_GIT_COMMIT_SHA`, then `1.0.0`.
 
 The authorized release operator uploads the inspected staging directory, using the following target scope and a meaningful release message:
 
